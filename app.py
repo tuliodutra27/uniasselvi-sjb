@@ -76,7 +76,8 @@ def _normalize_date(val: str) -> str:
 def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
     encoding, sep = _detect_encoding_and_sep(filepath)
     try:
-        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep)
+        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep,
+                         index_col=False)
     except Exception as e:
         return [], f"Erro ao ler o arquivo: {e}"
 
