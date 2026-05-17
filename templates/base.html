@@ -28,9 +28,14 @@
       <a class="navbar-brand" href="{{ url_for('index') }}">
         <i class="bi bi-mortarboard-fill me-2"></i>Indicador de Matrículas
       </a>
-      <a href="{{ url_for('history') }}" class="btn btn-outline-light btn-sm">
-        <i class="bi bi-clock-history me-1"></i>Histórico
-      </a>
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('students') }}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-people-fill me-1"></i>Alunos
+        </a>
+        <a href="{{ url_for('history') }}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-clock-history me-1"></i>Histórico
+        </a>
+      </div>
     </div>
   </nav>
 

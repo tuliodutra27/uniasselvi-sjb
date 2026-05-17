@@ -9,34 +9,34 @@ import database
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 app.config["UPLOAD_FOLDER"] = "uploads"
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
 ALLOWED_EXTENSIONS = {"csv"}
 
-# Mapeamento flexível de nomes de coluna para campos internos
 COLUMN_ALIASES = {
-    "cpf": ["cpf", "documento", "doc", "cpf/cnpj"],
-    "name": ["nome", "name", "aluno", "nome_aluno", "nome do aluno"],
-    "student_id": ["codigo_aluno", "id", "matricula", "matricula", "codigo", "codigo", "ra", "registro"],
-    "course": ["nome_do_curso", "curso", "course", "turma", "disciplina", "polo"],
-    "enrollment_date": ["data_matricula", "data", "dt_matricula", "data de matricula",
-                        "data matricula", "data_inicio", "inicio"],
+    "cpf":              ["cpf", "documento", "doc", "cpf/cnpj"],
+    "name":             ["nome", "name", "aluno", "nome_aluno", "nome do aluno"],
+    "student_id":       ["codigo_aluno", "id", "matricula", "codigo", "ra", "registro"],
+    "course":           ["nome_do_curso", "curso", "course", "disciplina"],
+    "enrollment_date":  ["data_matricula", "dt_matricula", "data de matricula", "data_inicio"],
+    "inscription_date": ["data_da_inscricao", "data_inscricao", "data da inscricao"],
+    "polo":             ["nome_do_polo", "polo", "local_de_inscricao"],
+    "turno":            ["turno"],
+    "matriculou":       ["matriculou"],
+    "tipo_inscricao":   ["tipo_da_inscricao", "tipo_inscricao"],
 }
 
 
 def normalize(text: str) -> str:
-    """Remove accents and lowercase for flexible column matching."""
     return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower().strip()
 
 
-def detect_columns(df: pd.DataFrame) -> dict[str, str | None]:
-    """Returns mapping of internal field → actual CSV column name."""
+def detect_columns(df: pd.DataFrame) -> dict:
     normalized_cols = {normalize(c): c for c in df.columns}
-    mapping = {}
-    for field, aliases in COLUMN_ALIASES.items():
-        matched = next((normalized_cols[a] for a in aliases if a in normalized_cols), None)
-        mapping[field] = matched
-    return mapping
+    return {
+        field: next((normalized_cols[a] for a in aliases if a in normalized_cols), None)
+        for field, aliases in COLUMN_ALIASES.items()
+    }
 
 
 def mask_cpf(cpf: str) -> str:
@@ -51,7 +51,6 @@ def allowed_file(filename: str) -> bool:
 
 
 def _detect_encoding_and_sep(filepath: str) -> tuple[str, str]:
-    """Sniff file encoding and CSV separator."""
     for encoding in ("utf-8-sig", "utf-8", "latin-1"):
         try:
             with open(filepath, "r", encoding=encoding) as f:
@@ -63,8 +62,18 @@ def _detect_encoding_and_sep(filepath: str) -> tuple[str, str]:
     return "latin-1", ";"
 
 
+def _clean(val) -> str:
+    s = str(val).strip()
+    return "" if s in ("nan", "None", "NaT") else s
+
+
+def _normalize_date(val: str) -> str:
+    """Keep only the YYYY-MM-DD part."""
+    s = _clean(val)
+    return s[:10] if len(s) >= 10 else s
+
+
 def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
-    """Parse CSV and return (list of student dicts, error message or None)."""
     encoding, sep = _detect_encoding_and_sep(filepath)
     try:
         df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep)
@@ -72,33 +81,30 @@ def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
         return [], f"Erro ao ler o arquivo: {e}"
 
     df.columns = [c.strip() for c in df.columns]
-    col_map = detect_columns(df)
+    col = detect_columns(df)
 
-    if not col_map["cpf"]:
-        return [], (
-            "Coluna de CPF não encontrada. O arquivo deve ter uma coluna chamada "
-            "'CPF', 'Documento' ou similar."
-        )
-    if not col_map["name"]:
-        return [], (
-            "Coluna de Nome não encontrada. O arquivo deve ter uma coluna chamada "
-            "'Nome', 'Aluno' ou similar."
-        )
+    if not col["cpf"]:
+        return [], "Coluna de CPF não encontrada. O arquivo deve ter uma coluna 'CPF', 'Documento' ou similar."
+    if not col["name"]:
+        return [], "Coluna de Nome não encontrada. O arquivo deve ter uma coluna 'Nome', 'Aluno' ou similar."
 
     students = []
     for _, row in df.iterrows():
-        cpf_raw = str(row[col_map["cpf"]]).strip()
-        cpf = "".join(filter(str.isdigit, cpf_raw))
+        cpf = "".join(filter(str.isdigit, _clean(row[col["cpf"]])))
         if not cpf:
             continue
         students.append({
-            "cpf": cpf,
-            "name": str(row[col_map["name"]]).strip() if col_map["name"] else "",
-            "student_id": str(row[col_map["student_id"]]).strip() if col_map["student_id"] else "",
-            "course": str(row[col_map["course"]]).strip() if col_map["course"] else "",
-            "enrollment_date": str(row[col_map["enrollment_date"]]).strip() if col_map["enrollment_date"] else "",
+            "cpf":              cpf,
+            "name":             _clean(row[col["name"]]) if col["name"] else "",
+            "student_id":       _clean(row[col["student_id"]]) if col["student_id"] else "",
+            "course":           _clean(row[col["course"]]) if col["course"] else "",
+            "enrollment_date":  _normalize_date(row[col["enrollment_date"]]) if col["enrollment_date"] else "",
+            "inscription_date": _normalize_date(row[col["inscription_date"]]) if col["inscription_date"] else "",
+            "polo":             _clean(row[col["polo"]]) if col["polo"] else "",
+            "turno":            _clean(row[col["turno"]]) if col["turno"] else "",
+            "matriculou":       _clean(row[col["matriculou"]]) if col["matriculou"] else "",
+            "tipo_inscricao":   _clean(row[col["tipo_inscricao"]]) if col["tipo_inscricao"] else "",
         })
-
     return students, None
 
 
@@ -151,6 +157,40 @@ def report(upload_id):
         for s in new_students
     ]
     return render_template("report.html", upload=upload, students=students_display)
+
+
+@app.route("/students")
+def students():
+    filters = {
+        "nome":       request.args.get("nome", "").strip(),
+        "course":     request.args.get("course", ""),
+        "polo":       request.args.get("polo", ""),
+        "turno":      request.args.get("turno", ""),
+        "matriculou": request.args.get("matriculou", ""),
+        "tipo":       request.args.get("tipo", ""),
+        "data_ini":   request.args.get("data_ini", ""),
+        "data_fim":   request.args.get("data_fim", ""),
+        "upload_id":  request.args.get("upload_id", ""),
+    }
+    active = {k: v for k, v in filters.items() if v}
+
+    rows, total_db, matriculados = database.get_students_filtered(**filters)
+    options = database.get_filter_options()
+
+    students_display = [
+        {**dict(s), "cpf_masked": mask_cpf(s["cpf"])}
+        for s in rows
+    ]
+    return render_template(
+        "students.html",
+        students=students_display,
+        filters=filters,
+        active_count=len(active),
+        total_filtered=len(rows),
+        total_db=total_db,
+        matriculados=matriculados,
+        options=options,
+    )
 
 
 @app.route("/history")

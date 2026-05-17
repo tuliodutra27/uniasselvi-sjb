@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Alunos{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+  <h4 class="mb-0 me-auto">Lista de Alunos</h4>
+  <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-upload me-1"></i>Novo upload
+  </a>
+</div>
+
+{# ── CARDS DE RESUMO ──────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-primary">{{ total_db }}</div>
+        <div class="text-muted small">Total no banco</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold {% if total_filtered != total_db %}text-warning{% else %}text-secondary{% endif %}">
+          {{ total_filtered }}
+        </div>
+        <div class="text-muted small">Exibindo{% if active_count %} (filtrado){% endif %}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">{{ matriculados }}</div>
+        <div class="text-muted small">Matriculados{% if active_count %} (filtrado){% endif %}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-danger">{{ total_filtered - matriculados }}</div>
+        <div class="text-muted small">Não matriculados{% if active_count %} (filtrado){% endif %}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 align-items-start">
+
+  {# ── PAINEL DE FILTROS ─────────────────────────────────────── #}
+  <div class="col-lg-3">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between py-2">
+        <span class="fw-semibold small">
+          <i class="bi bi-funnel me-1"></i>Filtros
+          {% if active_count %}
+            <span class="badge bg-primary ms-1">{{ active_count }}</span>
+          {% endif %}
+        </span>
+        {% if active_count %}
+        <a href="{{ url_for('students') }}" class="btn btn-sm btn-outline-danger py-0 px-2">
+          <i class="bi bi-x"></i> Limpar
+        </a>
+        {% endif %}
+      </div>
+      <div class="card-body p-3">
+        <form method="get" action="{{ url_for('students') }}" id="filterForm">
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Buscar por nome</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" name="nome" class="form-control"
+                     value="{{ filters.nome }}" placeholder="Nome do aluno…">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Curso</label>
+            <select name="course" class="form-select form-select-sm">
+              <option value="">Todos os cursos</option>
+              {% for c in options.courses %}
+              <option value="{{ c }}" {% if filters.course == c %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Polo</label>
+            <select name="polo" class="form-select form-select-sm">
+              <option value="">Todos os polos</option>
+              {% for p in options.polos %}
+              <option value="{{ p }}" {% if filters.polo == p %}selected{% endif %}>{{ p }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Turno</label>
+            <select name="turno" class="form-select form-select-sm">
+              <option value="">Todos os turnos</option>
+              {% for t in options.turnos %}
+              <option value="{{ t }}" {% if filters.turno == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Matriculado</label>
+            <select name="matriculou" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="S" {% if filters.matriculou == 'S' %}selected{% endif %}>Sim</option>
+              <option value="N" {% if filters.matriculou == 'N' %}selected{% endif %}>Não</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Tipo de inscrição</label>
+            <select name="tipo" class="form-select form-select-sm">
+              <option value="">Todos os tipos</option>
+              {% for t in options.tipos %}
+              <option value="{{ t }}" {% if filters.tipo == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Data de inscrição</label>
+            <input type="date" name="data_ini" class="form-control form-control-sm mb-1"
+                   value="{{ filters.data_ini }}" placeholder="De">
+            <input type="date" name="data_fim" class="form-control form-control-sm"
+                   value="{{ filters.data_fim }}" placeholder="Até">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Lote de upload</label>
+            <select name="upload_id" class="form-select form-select-sm">
+              <option value="">Todos os uploads</option>
+              {% for u in options.uploads %}
+              <option value="{{ u.id }}"
+                {% if filters.upload_id == u.id|string %}selected{% endif %}>
+                #{{ u.id }} – {{ u.uploaded_at[:10] }} ({{ u.filename[:20] }}…)
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-funnel me-1"></i>Aplicar filtros
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ── TABELA DE RESULTADOS ─────────────────────────────────── #}
+  <div class="col-lg-9">
+    {% if students %}
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:72vh; overflow-y:auto;">
+          <table class="table table-sm table-hover align-middle mb-0" id="studentsTable">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th style="min-width:180px">Nome</th>
+                <th>CPF</th>
+                <th style="min-width:140px">Curso</th>
+                <th>Polo</th>
+                <th>Turno</th>
+                <th class="text-center">Matriculado</th>
+                <th style="min-width:120px">Tipo</th>
+                <th>Dt. Inscrição</th>
+                <th>Dt. Matrícula</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in students %}
+              <tr>
+                <td class="fw-semibold">{{ s.name }}</td>
+                <td class="font-monospace text-muted small">{{ s.cpf_masked }}</td>
+                <td class="small">{{ s.course or '—' }}</td>
+                <td class="small text-muted">{{ s.polo or '—' }}</td>
+                <td>
+                  {% if s.turno %}
+                    <span class="badge rounded-pill
+                      {% if s.turno == 'Noturno' %}bg-dark
+                      {% elif s.turno == 'Matutino' %}bg-warning text-dark
+                      {% else %}bg-secondary{% endif %}">
+                      {{ s.turno }}
+                    </span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="text-center">
+                  {% if s.matriculou == 'S' %}
+                    <span class="badge bg-success">Sim</span>
+                  {% elif s.matriculou == 'N' %}
+                    <span class="badge bg-secondary">Não</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="small text-muted">{{ s.tipo_inscricao or '—' }}</td>
+                <td class="small">{{ s.inscription_date or '—' }}</td>
+                <td class="small">{{ s.enrollment_date or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer text-muted small py-2">
+        Mostrando <strong>{{ total_filtered }}</strong> de <strong>{{ total_db }}</strong> alunos no banco
+      </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        {% if active_count %}
+          <i class="bi bi-search text-muted" style="font-size:3rem"></i>
+          <h5 class="mt-3 mb-1">Nenhum aluno encontrado</h5>
+          <p class="text-muted">Tente ajustar ou <a href="{{ url_for('students') }}">limpar os filtros</a>.</p>
+        {% else %}
+          <i class="bi bi-inbox text-muted" style="font-size:3rem"></i>
+          <h5 class="mt-3 mb-1">Nenhum aluno cadastrado ainda</h5>
+          <a href="{{ url_for('index') }}" class="btn btn-primary mt-2">
+            <i class="bi bi-upload me-1"></i>Enviar primeiro arquivo
+          </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Submete o form automaticamente ao mudar qualquer select */
+  document.querySelectorAll('#filterForm select').forEach(el => {
+    el.addEventListener('change', () => document.getElementById('filterForm').submit());
+  });
+</script>
+{% endblock %}
