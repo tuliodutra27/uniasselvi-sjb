@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">Enviar relatório de alunos</h5>
+        <p class="text-muted small mb-4">
+          Envie o arquivo .csv exportado da plataforma. O sistema identificará automaticamente os alunos novos.
+        </p>
+
+        <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+          <div class="drop-zone mb-3" id="dropZone">
+            <i class="bi bi-cloud-upload d-block mb-2"></i>
+            <p class="mb-1 fw-semibold" id="dropText">Arraste o arquivo .csv aqui</p>
+            <p class="text-muted small">ou clique para selecionar</p>
+            <input type="file" name="file" id="fileInput" accept=".csv" class="d-none" required>
+          </div>
+
+          <div id="fileInfo" class="alert alert-info d-none mb-3">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>
+            <span id="fileName"></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100" id="submitBtn" disabled>
+            <i class="bi bi-search me-1"></i>Analisar arquivo
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% if recent %}
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-title mb-3">Últimos uploads</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Arquivo</th>
+                <th class="text-center">Total</th>
+                <th class="text-center">Novos</th>
+                <th>Data</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in recent %}
+              <tr>
+                <td class="text-truncate" style="max-width:160px">{{ u.filename }}</td>
+                <td class="text-center">{{ u.total_students }}</td>
+                <td class="text-center">
+                  {% if u.new_students > 0 %}
+                    <span class="badge bg-success">{{ u.new_students }}</span>
+                  {% else %}
+                    <span class="badge bg-secondary">0</span>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ u.uploaded_at[:16] }}</td>
+                <td>
+                  <a href="{{ url_for('report', upload_id=u.id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo = document.getElementById('fileInfo');
+  const fileName = document.getElementById('fileName');
+  const submitBtn = document.getElementById('submitBtn');
+  const dropText = document.getElementById('dropText');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    fileInput.files = e.dataTransfer.files;
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+  function handleFile(file) {
+    if (!file) return;
+    fileName.textContent = file.name;
+    fileInfo.classList.remove('d-none');
+    submitBtn.disabled = false;
+    dropText.textContent = 'Arquivo selecionado';
+  }
+</script>
+{% endblock %}
