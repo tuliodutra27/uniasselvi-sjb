@@ -1,3 +1,4 @@
+import csv
 import os
 import unicodedata
 import pandas as pd
@@ -16,9 +17,9 @@ ALLOWED_EXTENSIONS = {"csv"}
 COLUMN_ALIASES = {
     "cpf": ["cpf", "documento", "doc", "cpf/cnpj"],
     "name": ["nome", "name", "aluno", "nome_aluno", "nome do aluno"],
-    "student_id": ["id", "matricula", "matrícula", "codigo", "código", "ra", "registro"],
-    "course": ["curso", "course", "turma", "disciplina", "polo"],
-    "enrollment_date": ["data", "dt_matricula", "data_matricula", "data de matrícula",
+    "student_id": ["codigo_aluno", "id", "matricula", "matricula", "codigo", "codigo", "ra", "registro"],
+    "course": ["nome_do_curso", "curso", "course", "turma", "disciplina", "polo"],
+    "enrollment_date": ["data_matricula", "data", "dt_matricula", "data de matricula",
                         "data matricula", "data_inicio", "inicio"],
 }
 
@@ -41,7 +42,7 @@ def detect_columns(df: pd.DataFrame) -> dict[str, str | None]:
 def mask_cpf(cpf: str) -> str:
     digits = "".join(filter(str.isdigit, str(cpf)))
     if len(digits) == 11:
-        return f"{digits[:3]}.***.**{digits[-2:]}-{digits[-2:]}"
+        return f"{digits[:3]}.***.***-{digits[9:11]}"
     return cpf[:3] + "***" + cpf[-2:] if len(cpf) > 5 else cpf
 
 
@@ -49,15 +50,24 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _detect_encoding_and_sep(filepath: str) -> tuple[str, str]:
+    """Sniff file encoding and CSV separator."""
+    for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            with open(filepath, "r", encoding=encoding) as f:
+                sample = f.read(4096)
+            dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+            return encoding, dialect.delimiter
+        except (UnicodeDecodeError, csv.Error):
+            continue
+    return "latin-1", ";"
+
+
 def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
     """Parse CSV and return (list of student dicts, error message or None)."""
+    encoding, sep = _detect_encoding_and_sep(filepath)
     try:
-        df = pd.read_csv(filepath, dtype=str, encoding="utf-8")
-    except UnicodeDecodeError:
-        try:
-            df = pd.read_csv(filepath, dtype=str, encoding="latin-1")
-        except Exception as e:
-            return [], f"Erro ao ler o arquivo: {e}"
+        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep)
     except Exception as e:
         return [], f"Erro ao ler o arquivo: {e}"
 
