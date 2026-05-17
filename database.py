@@ -1,5 +1,4 @@
 import sqlite3
-from datetime import datetime
 
 DB_PATH = "student_tracker.db"
 
@@ -19,7 +18,8 @@ def init_db():
                 student_id TEXT,
                 course TEXT,
                 enrollment_date TEXT,
-                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                first_upload_id INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS uploads (
@@ -38,17 +38,6 @@ def get_known_cpfs():
     return {row["cpf"] for row in rows}
 
 
-def insert_new_students(students: list[dict]):
-    if not students:
-        return
-    with get_connection() as conn:
-        conn.executemany(
-            """INSERT OR IGNORE INTO students (cpf, name, student_id, course, enrollment_date)
-               VALUES (:cpf, :name, :student_id, :course, :enrollment_date)""",
-            students,
-        )
-
-
 def record_upload(filename: str, total: int, new: int) -> int:
     with get_connection() as conn:
         cursor = conn.execute(
@@ -56,6 +45,18 @@ def record_upload(filename: str, total: int, new: int) -> int:
             (filename, total, new),
         )
         return cursor.lastrowid
+
+
+def insert_new_students(students: list[dict], upload_id: int):
+    if not students:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            """INSERT OR IGNORE INTO students
+               (cpf, name, student_id, course, enrollment_date, first_upload_id)
+               VALUES (:cpf, :name, :student_id, :course, :enrollment_date, :first_upload_id)""",
+            [{**s, "first_upload_id": upload_id} for s in students],
+        )
 
 
 def get_upload(upload_id: int):
@@ -66,18 +67,9 @@ def get_upload(upload_id: int):
 
 
 def get_new_students_for_upload(upload_id: int):
-    """Returns students whose first_seen_at matches the upload timestamp."""
     with get_connection() as conn:
-        upload = conn.execute(
-            "SELECT uploaded_at FROM uploads WHERE id = ?", (upload_id,)
-        ).fetchone()
-        if not upload:
-            return []
         return conn.execute(
-            """SELECT * FROM students
-               WHERE strftime('%Y-%m-%d %H:%M', first_seen_at) =
-                     strftime('%Y-%m-%d %H:%M', ?)""",
-            (upload["uploaded_at"],),
+            "SELECT * FROM students WHERE first_upload_id = ?", (upload_id,)
         ).fetchall()
 
 

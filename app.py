@@ -132,8 +132,8 @@ def upload():
     known_cpfs = database.get_known_cpfs()
     new_students = [s for s in students if s["cpf"] not in known_cpfs]
 
-    database.insert_new_students(new_students)
     upload_id = database.record_upload(filename, len(students), len(new_students))
+    database.insert_new_students(new_students, upload_id)
 
     return redirect(url_for("report", upload_id=upload_id))
 
