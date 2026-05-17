@@ -173,6 +173,7 @@
                 <th style="min-width:120px">Tipo</th>
                 <th>Dt. Inscrição</th>
                 <th>Dt. Matrícula</th>
+                <th class="text-center">Detalhes</th>
               </tr>
             </thead>
             <tbody>
@@ -202,6 +203,15 @@
                 <td class="small text-muted">{{ s.tipo_inscricao or '—' }}</td>
                 <td class="small">{{ s.inscription_date or '—' }}</td>
                 <td class="small">{{ s.enrollment_date or '—' }}</td>
+                <td class="text-center">
+                  <a href="{{ url_for('student_detail', cpf=s.cpf) }}"
+                     class="btn btn-sm btn-outline-primary py-0 px-2" title="Ver detalhes e anotações">
+                    <i class="bi bi-journal-text"></i>
+                    {% if s.note_count %}
+                      <span class="badge bg-primary ms-1">{{ s.note_count }}</span>
+                    {% endif %}
+                  </a>
+                </td>
               </tr>
               {% endfor %}
             </tbody>

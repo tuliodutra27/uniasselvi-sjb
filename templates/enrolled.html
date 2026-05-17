@@ -298,6 +298,7 @@
                 <th class="text-center" style="min-width:105px">Sit. Aluno</th>
                 <th class="text-center" style="min-width:105px">Matrícula</th>
                 <th class="text-center">Inadimp.</th>
+                <th class="text-center">Detalhes</th>
               </tr>
             </thead>
             <tbody>
@@ -352,6 +353,15 @@
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}
+                </td>
+                <td class="text-center">
+                  <a href="{{ url_for('enrolled_student_detail', code=s.student_code) }}"
+                     class="btn btn-sm btn-outline-primary py-0 px-2" title="Ver detalhes e anotações">
+                    <i class="bi bi-journal-text"></i>
+                    {% if s.note_count %}
+                      <span class="badge bg-primary ms-1">{{ s.note_count }}</span>
+                    {% endif %}
+                  </a>
                 </td>
               </tr>
               {% endfor %}

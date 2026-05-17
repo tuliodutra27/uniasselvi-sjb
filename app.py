@@ -342,8 +342,10 @@ def students():
     rows, total_db, matriculados = database.get_students_filtered(**filters)
     options = database.get_filter_options()
 
+    cpfs = [s["cpf"] for s in rows]
+    note_counts = database.get_note_counts("student", cpfs)
     students_display = [
-        {**dict(s), "cpf_masked": mask_cpf(s["cpf"])}
+        {**dict(s), "cpf_masked": mask_cpf(s["cpf"]), "note_count": note_counts.get(s["cpf"], 0)}
         for s in rows
     ]
     return render_template(
@@ -388,6 +390,10 @@ def enrolled():
     inativos      = sum(1 for r in rows if r["ativo"] == "N")
     inadimplentes = sum(1 for r in rows if r["inadimplente"] == "Sim")
     desistentes   = sum(1 for r in rows if "desistente" in (r["situacao_aluno"] or "").lower())
+
+    codes = [r["student_code"] for r in rows]
+    note_counts = database.get_note_counts("enrolled", codes)
+    rows = [dict(r) | {"note_count": note_counts.get(r["student_code"], 0)} for r in rows]
 
     quick_filter = None
     if active_count := len(active):
@@ -507,6 +513,59 @@ def upload_payments():
 
     flash(f"{len(records)} registros de pagamento importados com sucesso.", "success")
     return redirect(url_for("payments"))
+
+
+@app.route("/student/<cpf>")
+def student_detail(cpf):
+    student = database.get_student(cpf)
+    if not student:
+        flash("Aluno não encontrado.", "danger")
+        return redirect(url_for("students"))
+    notes = database.get_notes("student", cpf)
+    return render_template(
+        "student_detail.html",
+        student={**dict(student), "cpf_masked": mask_cpf(student["cpf"])},
+        notes=notes,
+    )
+
+
+@app.route("/student/<cpf>/note", methods=["POST"])
+def add_student_note(cpf):
+    note = request.form.get("note", "").strip()
+    if note:
+        database.add_note("student", cpf, note)
+    return redirect(url_for("student_detail", cpf=cpf))
+
+
+@app.route("/enrolled/student/<code>")
+def enrolled_student_detail(code):
+    enrollments = database.get_enrolled_by_code(code)
+    if not enrollments:
+        flash("Aluno não encontrado.", "danger")
+        return redirect(url_for("enrolled"))
+    notes = database.get_notes("enrolled", code)
+    return render_template(
+        "enrolled_detail.html",
+        student_name=enrollments[0]["student_name"],
+        student_code=code,
+        enrollments=enrollments,
+        notes=notes,
+    )
+
+
+@app.route("/enrolled/student/<code>/note", methods=["POST"])
+def add_enrolled_note(code):
+    note = request.form.get("note", "").strip()
+    if note:
+        database.add_note("enrolled", code, note)
+    return redirect(url_for("enrolled_student_detail", code=code))
+
+
+@app.route("/note/<int:note_id>/delete", methods=["POST"])
+def delete_note(note_id):
+    back = request.form.get("back", "/")
+    database.delete_note(note_id)
+    return redirect(back)
 
 
 if __name__ == "__main__":

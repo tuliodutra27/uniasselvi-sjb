@@ -87,6 +87,7 @@ def init_db():
         """)
         _migrate(conn)
         _migrate_payments(conn)
+        _migrate_notes(conn)
 
 
 def _migrate(conn):
@@ -129,6 +130,18 @@ def _migrate_payments(conn):
     else:
         if "situacao" not in cols:
             conn.execute("ALTER TABLE payments ADD COLUMN situacao TEXT")
+
+
+def _migrate_notes(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS notes (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id   TEXT NOT NULL,
+            note        TEXT NOT NULL,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
 
 def get_known_cpfs():
@@ -458,3 +471,54 @@ def get_enrolled_filtered(nome=None, course=None, polo=None, turno=None,
         inadimplentes_count = conn.execute(f"SELECT COUNT(*) FROM enrolled_students {inad_where}", params).fetchone()[0]
 
     return students, total_db, ativos, inadimplentes_count
+
+
+# ── NOTAS / ANOTAÇÕES ────────────────────────────────────────────────────────
+
+def get_notes(entity_type: str, entity_id: str):
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM notes WHERE entity_type=? AND entity_id=? ORDER BY created_at DESC",
+            (entity_type, entity_id),
+        ).fetchall()
+
+
+def add_note(entity_type: str, entity_id: str, note: str):
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO notes (entity_type, entity_id, note) VALUES (?,?,?)",
+            (entity_type, entity_id, note),
+        )
+
+
+def delete_note(note_id: int):
+    with get_connection() as conn:
+        conn.execute("DELETE FROM notes WHERE id=?", (note_id,))
+
+
+def get_note_counts(entity_type: str, ids: list) -> dict:
+    if not ids:
+        return {}
+    placeholders = ",".join("?" * len(ids))
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"SELECT entity_id, COUNT(*) FROM notes "
+            f"WHERE entity_type=? AND entity_id IN ({placeholders}) GROUP BY entity_id",
+            [entity_type] + ids,
+        ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+# ── DETALHES DE ALUNO ────────────────────────────────────────────────────────
+
+def get_student(cpf: str):
+    with get_connection() as conn:
+        return conn.execute("SELECT * FROM students WHERE cpf=?", (cpf,)).fetchone()
+
+
+def get_enrolled_by_code(code: str):
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM enrolled_students WHERE student_code=? ORDER BY semestre DESC",
+            (code,),
+        ).fetchall()
