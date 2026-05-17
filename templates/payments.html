@@ -50,24 +50,24 @@
   <div class="col-6 col-md-3">
     <div class="card text-center h-100">
       <div class="card-body py-3">
-        <div class="fs-2 fw-bold text-success">{{ pagos }}</div>
-        <div class="text-muted small">Pagos{% if active_count %} (filtrado){% endif %}</div>
+        <div class="fs-2 fw-bold text-secondary">{{ total_filtered }}</div>
+        <div class="text-muted small">Exibindo{% if active_count %} (filtrado){% endif %}</div>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="card text-center h-100">
       <div class="card-body py-3">
-        <div class="fs-2 fw-bold text-warning">{{ em_aberto }}</div>
-        <div class="text-muted small">Em aberto{% if active_count %} (filtrado){% endif %}</div>
+        <div class="fs-2 fw-bold text-success">{{ adimplentes }}</div>
+        <div class="text-muted small">Adimplentes{% if active_count %} (filtrado){% endif %}</div>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="card text-center h-100">
       <div class="card-body py-3">
-        <div class="fs-2 fw-bold text-danger">{{ atrasados }}</div>
-        <div class="text-muted small">Atrasados{% if active_count %} (filtrado){% endif %}</div>
+        <div class="fs-2 fw-bold text-danger">{{ inadimplentes }}</div>
+        <div class="text-muted small">Inadimplentes{% if active_count %} (filtrado){% endif %}</div>
       </div>
     </div>
   </div>
@@ -107,10 +107,8 @@
             <label class="form-label small fw-semibold mb-1">Status</label>
             <select name="status" class="form-select form-select-sm">
               <option value="">Todos</option>
-              <option value="Pago"      {% if filters.status == 'Pago' %}selected{% endif %}>Pago</option>
-              <option value="Em aberto" {% if filters.status == 'Em aberto' %}selected{% endif %}>Em aberto</option>
-              <option value="Atrasado"  {% if filters.status == 'Atrasado' %}selected{% endif %}>Atrasado</option>
-              <option value="Cancelado" {% if filters.status == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+              <option value="Adimplente"   {% if filters.status == 'Adimplente' %}selected{% endif %}>Adimplente</option>
+              <option value="Inadimplente" {% if filters.status == 'Inadimplente' %}selected{% endif %}>Inadimplente</option>
             </select>
           </div>
 
@@ -135,21 +133,41 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label small fw-semibold mb-1">Mês de referência</label>
-            <select name="reference_month" class="form-select form-select-sm">
-              <option value="">Todos os meses</option>
-              {% for m in options.months %}
-              <option value="{{ m }}" {% if filters.reference_month == m %}selected{% endif %}>{{ m }}</option>
+            <label class="form-label small fw-semibold mb-1">Turno</label>
+            <select name="turno" class="form-select form-select-sm">
+              <option value="">Todos os turnos</option>
+              {% for t in options.turnos %}
+              <option value="{{ t }}" {% if filters.turno == t %}selected{% endif %}>{{ t }}</option>
               {% endfor %}
             </select>
           </div>
 
           <div class="mb-3">
-            <label class="form-label small fw-semibold mb-1">Vencimento</label>
-            <input type="date" name="due_ini" class="form-control form-control-sm mb-1"
-                   value="{{ filters.due_ini }}" placeholder="De">
-            <input type="date" name="due_fim" class="form-control form-control-sm"
-                   value="{{ filters.due_fim }}" placeholder="Até">
+            <label class="form-label small fw-semibold mb-1">Semestre</label>
+            <select name="semestre" class="form-select form-select-sm">
+              <option value="">Todos os semestres</option>
+              {% for s in options.semestres %}
+              <option value="{{ s }}" {% if filters.semestre == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Situação do aluno</label>
+            <select name="situacao" class="form-select form-select-sm">
+              <option value="">Todas</option>
+              {% for s in options.situacoes %}
+              <option value="{{ s }}" {% if filters.situacao == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Último pagamento</label>
+            <input type="date" name="ult_pag_ini" class="form-control form-control-sm mb-1"
+                   value="{{ filters.ult_pag_ini }}" placeholder="De">
+            <input type="date" name="ult_pag_fim" class="form-control form-control-sm"
+                   value="{{ filters.ult_pag_fim }}" placeholder="Até">
           </div>
 
           <div class="mb-3">
@@ -183,13 +201,14 @@
             <thead class="table-light sticky-top">
               <tr>
                 <th style="min-width:180px">Nome</th>
-                <th>CPF</th>
+                <th>Código</th>
                 <th style="min-width:140px">Curso</th>
                 <th>Polo</th>
-                <th>Referência</th>
-                <th>Vencimento</th>
-                <th>Dt. Pagamento</th>
-                <th>Valor</th>
+                <th>Turno</th>
+                <th>Semestre</th>
+                <th>Último Pagamento</th>
+                <th>Qtd. Pago</th>
+                <th class="text-center">Situação</th>
                 <th class="text-center">Status</th>
               </tr>
             </thead>
@@ -197,22 +216,30 @@
               {% for p in payments %}
               <tr>
                 <td class="fw-semibold">{{ p.student_name or '—' }}</td>
-                <td class="font-monospace text-muted small">{{ p.cpf_masked }}</td>
+                <td class="font-monospace text-muted small">{{ p.student_code or '—' }}</td>
                 <td class="small">{{ p.course or '—' }}</td>
                 <td class="small text-muted">{{ p.polo or '—' }}</td>
-                <td class="small">{{ p.reference_month or '—' }}</td>
-                <td class="small">{{ p.due_date or '—' }}</td>
-                <td class="small">{{ p.payment_date or '—' }}</td>
-                <td class="small fw-semibold">{{ p.amount or '—' }}</td>
+                <td class="small">{{ p.turno or '—' }}</td>
+                <td class="small">{{ p.semestre or '—' }}</td>
+                <td class="small">{{ p.ultimo_pagamento or '—' }}</td>
+                <td class="small">{{ p.qtd_pago or '—' }}</td>
                 <td class="text-center">
-                  {% if p.status == 'Pago' %}
-                    <span class="badge bg-success">Pago</span>
-                  {% elif p.status == 'Atrasado' %}
-                    <span class="badge bg-danger">Atrasado</span>
-                  {% elif p.status == 'Em aberto' %}
-                    <span class="badge bg-warning text-dark">Em aberto</span>
-                  {% elif p.status == 'Cancelado' %}
-                    <span class="badge bg-secondary">Cancelado</span>
+                  {% set sit = p.situacao or '' %}
+                  {% if 'confirmada' in sit.lower() or sit.lower() == 'ativo' %}
+                    <span class="badge bg-success">{{ sit }}</span>
+                  {% elif sit and ('cancelad' in sit.lower() or 'inativo' in sit.lower() or 'trancad' in sit.lower()) %}
+                    <span class="badge bg-danger">{{ sit }}</span>
+                  {% elif sit %}
+                    <span class="badge bg-secondary">{{ sit }}</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if p.status == 'Adimplente' %}
+                    <span class="badge bg-success">Adimplente</span>
+                  {% elif p.status == 'Inadimplente' %}
+                    <span class="badge bg-danger">Inadimplente</span>
                   {% else %}
                     <span class="badge bg-secondary">{{ p.status or '—' }}</span>
                   {% endif %}
