@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% block title %}Alunos Matriculados{% endblock %}
+
+{% block content %}
+
+{# ── CABEÇALHO ──────────────────────────────────────────────────────── #}
+<div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+  <div class="me-auto">
+    <h4 class="mb-0">Alunos Matriculados</h4>
+    <p class="text-muted small mb-0">Importe o arquivo <strong>alunos-total.csv</strong> exportado do sistema da faculdade.</p>
+  </div>
+  <button class="btn btn-sm btn-primary" type="button"
+          data-bs-toggle="collapse" data-bs-target="#uploadPanel">
+    <i class="bi bi-upload me-1"></i>Importar CSV
+  </button>
+</div>
+
+{# ── PAINEL DE UPLOAD ──────────────────────────────────────────────── #}
+<div class="collapse mb-4" id="uploadPanel">
+  <div class="card border-primary">
+    <div class="card-body p-4">
+      <h6 class="fw-semibold mb-1">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Importar alunos matriculados
+      </h6>
+      <p class="text-muted small mb-3">
+        Colunas esperadas: <code>COD_ALUNO</code>, <code>NOME_ALUNO</code>, <code>ALUNO_EH_ATIVO</code>, <code>SITUACAO_DO_ALUNO</code>, <code>SITUACAO_MATRICULA_ALUNO_SEMESTRE</code>, etc.
+        Um mesmo aluno pode aparecer mais de uma vez (ex.: graduação + curso livre).
+      </p>
+      <form method="post" action="{{ url_for('upload_enrolled') }}" enctype="multipart/form-data">
+        <div class="drop-zone" id="enrollDropZone">
+          <i class="bi bi-cloud-upload"></i>
+          <p class="mt-2 mb-1 fw-semibold">Arraste o arquivo CSV aqui</p>
+          <p class="text-muted small mb-3">ou clique para selecionar</p>
+          <input type="file" name="file" id="enrollFileInput" accept=".csv" class="d-none">
+          <button type="button" class="btn btn-outline-primary btn-sm"
+                  onclick="document.getElementById('enrollFileInput').click()">
+            Selecionar arquivo
+          </button>
+          <p class="text-muted small mt-2 mb-0" id="enrollFileName">Nenhum arquivo selecionado</p>
+        </div>
+        <div class="mt-3 text-end">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-upload me-1"></i>Importar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── CARDS DE RESUMO (clicáveis) ──────────────────────────────────── #}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('enrolled') }}" class="text-decoration-none">
+      <div class="card text-center h-100 {% if not active_count %}border-2 border-primary{% endif %}" style="cursor:pointer">
+        <div class="card-body py-3">
+          <div class="fs-2 fw-bold text-primary">{{ total_db }}</div>
+          <div class="text-muted small">Total cadastrado</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('enrolled', ativo='S') }}" class="text-decoration-none">
+      <div class="card text-center h-100 {% if quick_filter == 'ativos' %}border-2 border-success{% endif %}" style="cursor:pointer">
+        <div class="card-body py-3">
+          <div class="fs-2 fw-bold text-success">{{ ativos }}</div>
+          <div class="text-muted small">Ativos{% if active_count %} (filtrado){% endif %}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('enrolled', ativo='N') }}" class="text-decoration-none">
+      <div class="card text-center h-100 {% if quick_filter == 'inativos' %}border-2 border-secondary{% endif %}" style="cursor:pointer">
+        <div class="card-body py-3">
+          <div class="fs-2 fw-bold text-secondary">{{ inativos }}</div>
+          <div class="text-muted small">Inativos{% if active_count %} (filtrado){% endif %}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('enrolled', inadimplente='Sim') }}" class="text-decoration-none">
+      <div class="card text-center h-100 {% if quick_filter == 'inadimplentes' %}border-2 border-danger{% endif %}" style="cursor:pointer">
+        <div class="card-body py-3">
+          <div class="fs-2 fw-bold text-danger">{{ inadimplentes }}</div>
+          <div class="text-muted small">Inadimplentes{% if active_count %} (filtrado){% endif %}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+{# ── FILTROS RÁPIDOS ──────────────────────────────────────────────── #}
+<div class="mb-3 d-flex gap-2 flex-wrap align-items-center">
+  <span class="text-muted small fw-semibold">Filtro rápido:</span>
+
+  <a href="{{ url_for('enrolled') }}"
+     class="btn btn-sm {% if not active_count %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-list me-1"></i>Todos
+  </a>
+
+  <a href="{{ url_for('enrolled', ativo='S') }}"
+     class="btn btn-sm {% if quick_filter == 'ativos' %}btn-success{% else %}btn-outline-success{% endif %}">
+    <i class="bi bi-check-circle me-1"></i>Ativos
+  </a>
+
+  <a href="{{ url_for('enrolled', ativo='N') }}"
+     class="btn btn-sm {% if quick_filter == 'inativos' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-x-circle me-1"></i>Inativos
+  </a>
+
+  <a href="{{ url_for('enrolled', situacao_aluno='Desistente') }}"
+     class="btn btn-sm {% if quick_filter == 'desistentes' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+    <i class="bi bi-person-x me-1"></i>Desistentes ({{ desistentes }})
+  </a>
+
+  <a href="{{ url_for('enrolled', situacao_matricula='Matrícula Confirmada') }}"
+     class="btn btn-sm {% if quick_filter == 'confirmados' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+    <i class="bi bi-patch-check me-1"></i>Matr. Confirmada
+  </a>
+
+  <a href="{{ url_for('enrolled', situacao_matricula='Aguardando Matrícula') }}"
+     class="btn btn-sm {% if quick_filter == 'aguardando' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %}">
+    <i class="bi bi-hourglass-split me-1"></i>Aguardando
+  </a>
+
+  <a href="{{ url_for('enrolled', inadimplente='Sim') }}"
+     class="btn btn-sm {% if quick_filter == 'inadimplentes' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+    <i class="bi bi-exclamation-triangle me-1"></i>Inadimplentes
+  </a>
+
+  {% if active_count and not quick_filter %}
+  <a href="{{ url_for('enrolled') }}" class="btn btn-sm btn-outline-secondary ms-auto">
+    <i class="bi bi-x me-1"></i>Limpar ({{ active_count }} filtro{{ 's' if active_count > 1 }})
+  </a>
+  {% endif %}
+</div>
+
+<div class="row g-3 align-items-start">
+
+  {# ── PAINEL DE FILTROS AVANÇADOS ───────────────────────────────── #}
+  <div class="col-lg-3">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between py-2">
+        <span class="fw-semibold small">
+          <i class="bi bi-sliders me-1"></i>Filtros avançados
+          {% if active_count %}
+            <span class="badge bg-primary ms-1">{{ active_count }}</span>
+          {% endif %}
+        </span>
+        {% if active_count %}
+        <a href="{{ url_for('enrolled') }}" class="btn btn-sm btn-outline-danger py-0 px-2">
+          <i class="bi bi-x"></i> Limpar
+        </a>
+        {% endif %}
+      </div>
+      <div class="card-body p-3">
+        <form method="get" action="{{ url_for('enrolled') }}" id="filterForm">
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Buscar por nome</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" name="nome" class="form-control"
+                     value="{{ filters.nome }}" placeholder="Nome do aluno…">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Ativo</label>
+            <select name="ativo" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="S" {% if filters.ativo == 'S' %}selected{% endif %}>Sim (Ativo)</option>
+              <option value="N" {% if filters.ativo == 'N' %}selected{% endif %}>Não (Inativo)</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Situação do aluno</label>
+            <select name="situacao_aluno" class="form-select form-select-sm">
+              <option value="">Todas</option>
+              {% for s in options.situacoes_aluno %}
+              <option value="{{ s }}" {% if filters.situacao_aluno == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Situação da matrícula</label>
+            <select name="situacao_matricula" class="form-select form-select-sm">
+              <option value="">Todas</option>
+              {% for s in options.situacoes_mat %}
+              <option value="{{ s }}" {% if filters.situacao_matricula == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Inadimplente</label>
+            <select name="inadimplente" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="Sim" {% if filters.inadimplente == 'Sim' %}selected{% endif %}>Sim</option>
+              <option value="Não" {% if filters.inadimplente == 'Não' %}selected{% endif %}>Não</option>
+            </select>
+          </div>
+
+          <hr class="my-2">
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Curso</label>
+            <select name="course" class="form-select form-select-sm">
+              <option value="">Todos os cursos</option>
+              {% for c in options.courses %}
+              <option value="{{ c }}" {% if filters.course == c %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Polo</label>
+            <select name="polo" class="form-select form-select-sm">
+              <option value="">Todos os polos</option>
+              {% for p in options.polos %}
+              <option value="{{ p }}" {% if filters.polo == p %}selected{% endif %}>{{ p }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Turno</label>
+            <select name="turno" class="form-select form-select-sm">
+              <option value="">Todos os turnos</option>
+              {% for t in options.turnos %}
+              <option value="{{ t }}" {% if filters.turno == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Semestre</label>
+            <select name="semestre" class="form-select form-select-sm">
+              <option value="">Todos os semestres</option>
+              {% for s in options.semestres %}
+              <option value="{{ s }}" {% if filters.semestre == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Tipo de aluno</label>
+            <select name="tipo_aluno" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              {% for t in options.tipos_aluno %}
+              <option value="{{ t }}" {% if filters.tipo_aluno == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Lote de importação</label>
+            <select name="upload_id" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              {% for u in options.uploads %}
+              <option value="{{ u.id }}"
+                {% if filters.upload_id == u.id|string %}selected{% endif %}>
+                #{{ u.id }} – {{ u.uploaded_at[:10] }} ({{ u.filename[:20] }}…)
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-funnel me-1"></i>Aplicar filtros
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ── TABELA DE RESULTADOS ─────────────────────────────────────── #}
+  <div class="col-lg-9">
+    {% if students %}
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:65vh; overflow-y:auto;">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th style="min-width:180px">Nome</th>
+                <th>Código</th>
+                <th style="min-width:150px">Curso</th>
+                <th>Tipo</th>
+                <th>Turno</th>
+                <th>Sem.</th>
+                <th class="text-center">Ativo</th>
+                <th class="text-center" style="min-width:105px">Sit. Aluno</th>
+                <th class="text-center" style="min-width:105px">Matrícula</th>
+                <th class="text-center">Inadimp.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in students %}
+              <tr>
+                <td class="fw-semibold">{{ s.student_name or '—' }}</td>
+                <td class="font-monospace text-muted small">{{ s.student_code or '—' }}</td>
+                <td class="small">{{ s.course or '—' }}</td>
+                <td class="small text-muted">{{ s.tipo_aluno or '—' }}</td>
+                <td class="small">{{ s.turno or '—' }}</td>
+                <td class="small">{{ s.semestre or '—' }}</td>
+                <td class="text-center">
+                  {% if s.ativo == 'S' %}
+                    <span class="badge bg-success">Ativo</span>
+                  {% elif s.ativo == 'N' %}
+                    <span class="badge bg-secondary">Inativo</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% set sit = s.situacao_aluno or '' %}
+                  {% if 'desistente' in sit.lower() %}
+                    <span class="badge bg-danger">Desistente</span>
+                  {% elif 'cadastrado' in sit.lower() %}
+                    <span class="badge bg-success">Cadastrado</span>
+                  {% elif sit %}
+                    <span class="badge bg-secondary">{{ sit }}</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% set mat = s.situacao_matricula or '' %}
+                  {% if 'confirmada' in mat.lower() %}
+                    <span class="badge bg-success">Confirmada</span>
+                  {% elif 'aguardando' in mat.lower() %}
+                    <span class="badge bg-warning text-dark">Aguardando</span>
+                  {% elif 'cancelad' in mat.lower() or 'recusad' in mat.lower() %}
+                    <span class="badge bg-danger">{{ mat }}</span>
+                  {% elif mat %}
+                    <span class="badge bg-secondary">{{ mat }}</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if s.inadimplente == 'Sim' %}
+                    <span class="badge bg-danger">Sim</span>
+                  {% elif s.inadimplente in ('Não', 'Nao') %}
+                    <span class="badge bg-success">Não</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer text-muted small py-2 d-flex justify-content-between align-items-center">
+        <span>
+          Exibindo <strong>{{ total_filtered }}</strong>{% if active_count %} (filtrado){% endif %}
+          de <strong>{{ total_db }}</strong> registros
+        </span>
+        {% if active_count %}
+        <a href="{{ url_for('enrolled') }}" class="btn btn-sm btn-outline-secondary py-0 px-2">
+          <i class="bi bi-x"></i> Limpar filtros
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        {% if active_count %}
+          <i class="bi bi-search text-muted" style="font-size:3rem"></i>
+          <h5 class="mt-3 mb-1">Nenhum aluno encontrado</h5>
+          <p class="text-muted">Tente ajustar ou <a href="{{ url_for('enrolled') }}">limpar os filtros</a>.</p>
+        {% else %}
+          <i class="bi bi-person-check text-muted" style="font-size:3rem"></i>
+          <h5 class="mt-3 mb-1">Nenhum dado importado ainda</h5>
+          <p class="text-muted">
+            Clique em <strong>Importar CSV</strong> acima e envie o arquivo <code>alunos-total.csv</code>.<br>
+            <small class="text-muted">Atenção: este arquivo não usa CPF. Para o arquivo de leads (com CPF), use a aba <strong>Alunos</strong>.</small>
+          </p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('#filterForm select').forEach(el => {
+    el.addEventListener('change', () => document.getElementById('filterForm').submit());
+  });
+
+  const dropZone   = document.getElementById('enrollDropZone');
+  const fileInput  = document.getElementById('enrollFileInput');
+  const fileNameEl = document.getElementById('enrollFileName');
+
+  if (dropZone) {
+    fileInput.addEventListener('change', () => {
+      fileNameEl.textContent = fileInput.files[0]?.name || 'Nenhum arquivo selecionado';
+    });
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        fileNameEl.textContent = e.dataTransfer.files[0].name;
+      }
+    });
+  }
+</script>
+{% endblock %}
