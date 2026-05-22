@@ -1,0 +1,13 @@
+services:
+  student-enrollment-tracker:
+    build: .
+    container_name: student-enrollment-tracker
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DB_PATH=/app/data/student_tracker.db
+    volumes:
+      - ./data/db:/app/data
+      - ./data/uploads:/app/uploads
