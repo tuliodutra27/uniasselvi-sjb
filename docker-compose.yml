@@ -19,3 +19,4 @@ x-casaos:
   scheme: http
   port_map: "5000"
   index: /
+  icon: https://cdn-icons-png.flaticon.com/512/2436/2436874.png
