@@ -679,7 +679,7 @@ def students():
 
 @app.route("/history")
 def history():
-    uploads = database.get_recent_uploads(50)
+    uploads = database.get_all_uploads_unified(100)
     return render_template("history.html", uploads=uploads)
 
 
@@ -767,6 +767,13 @@ def upload_enrolled():
 
     upload_id = database.record_enrollment_upload(filename, len(records))
     database.insert_enrolled_students(records, upload_id)
+
+    # Automatically populate payments from the same file
+    pay_records, pay_error = parse_payment_csv(filepath)
+    if not pay_error and pay_records:
+        pay_upload_id = database.record_payment_upload(filename, len(pay_records))
+        database.insert_payments(pay_records, pay_upload_id)
+
     database.add_audit_log(session.get("username", ""), request.remote_addr,
                            "upload_matriculados",
                            f"Arquivo: {filename} | Registros: {len(records)}")

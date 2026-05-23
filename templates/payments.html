@@ -4,37 +4,9 @@
 {% block content %}
 <div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
   <h4 class="mb-0 me-auto">Mensalidades</h4>
-  <button class="btn btn-sm btn-primary" type="button"
-          data-bs-toggle="collapse" data-bs-target="#uploadPanel">
-    <i class="bi bi-upload me-1"></i>Importar CSV
-  </button>
-</div>
-
-{# ── PAINEL DE UPLOAD ──────────────────────────────────────────── #}
-<div class="collapse mb-4" id="uploadPanel">
-  <div class="card">
-    <div class="card-body p-4">
-      <h6 class="fw-semibold mb-3"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Importar arquivo de pagamentos</h6>
-      <form method="post" action="{{ url_for('upload_payments') }}" enctype="multipart/form-data">
-        <div class="drop-zone" id="payDropZone">
-          <i class="bi bi-cloud-upload"></i>
-          <p class="mt-2 mb-1 fw-semibold">Arraste o arquivo CSV aqui</p>
-          <p class="text-muted small mb-3">ou clique para selecionar</p>
-          <input type="file" name="file" id="payFileInput" accept=".csv" class="d-none">
-          <button type="button" class="btn btn-outline-primary btn-sm"
-                  onclick="document.getElementById('payFileInput').click()">
-            Selecionar arquivo
-          </button>
-          <p class="text-muted small mt-2 mb-0" id="payFileName">Nenhum arquivo selecionado</p>
-        </div>
-        <div class="mt-3 text-end">
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-upload me-1"></i>Importar
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <a href="{{ url_for('enrolled') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-box-arrow-up-right me-1"></i>Importar via Matriculados
+  </a>
 </div>
 
 {# ── CARDS DE RESUMO ──────────────────────────────────────────── #}
@@ -280,25 +252,5 @@
   document.querySelectorAll('#filterForm select').forEach(el => {
     el.addEventListener('change', () => document.getElementById('filterForm').submit());
   });
-
-  const dropZone = document.getElementById('payDropZone');
-  const fileInput = document.getElementById('payFileInput');
-  const fileNameEl = document.getElementById('payFileName');
-
-  if (dropZone) {
-    fileInput.addEventListener('change', () => {
-      fileNameEl.textContent = fileInput.files[0]?.name || 'Nenhum arquivo selecionado';
-    });
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
-        fileInput.files = e.dataTransfer.files;
-        fileNameEl.textContent = e.dataTransfer.files[0].name;
-      }
-    });
-  }
 </script>
 {% endblock %}

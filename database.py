@@ -226,6 +226,25 @@ def get_recent_uploads(limit: int = 10):
         ).fetchall()
 
 
+def get_all_uploads_unified(limit: int = 100):
+    with get_connection() as conn:
+        return conn.execute("""
+            SELECT id, filename, uploaded_at,
+                   total_students AS total, new_students AS novos, 'leads' AS tipo
+            FROM uploads
+            UNION ALL
+            SELECT id, filename, uploaded_at,
+                   total_records, NULL, 'matriculados'
+            FROM enrollment_uploads
+            UNION ALL
+            SELECT id, filename, uploaded_at,
+                   total_records, NULL, 'mensalidades'
+            FROM payment_uploads
+            ORDER BY uploaded_at DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+
+
 def get_filter_options():
     with get_connection() as conn:
         def distinct(col):

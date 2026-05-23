@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-lg-9">
+  <div class="col-lg-10">
     <div class="d-flex align-items-center mb-4 gap-3">
       <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Voltar
@@ -22,12 +22,13 @@
 
     {% if uploads %}
     <div class="card">
-      <div class="card-body">
+      <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
                 <th>#</th>
+                <th>Tipo</th>
                 <th>Arquivo</th>
                 <th class="text-center">Total</th>
                 <th class="text-center">Novos</th>
@@ -39,20 +40,35 @@
               {% for u in uploads %}
               <tr>
                 <td class="text-muted small">{{ u.id }}</td>
-                <td>{{ u.filename }}</td>
-                <td class="text-center">{{ u.total_students }}</td>
-                <td class="text-center">
-                  {% if u.new_students > 0 %}
-                    <span class="badge bg-success">{{ u.new_students }} novos</span>
+                <td>
+                  {% if u.tipo == 'leads' %}
+                    <span class="badge bg-primary">Leads</span>
+                  {% elif u.tipo == 'matriculados' %}
+                    <span class="badge bg-success">Matriculados</span>
                   {% else %}
-                    <span class="badge bg-secondary">0 novos</span>
+                    <span class="badge bg-warning text-dark">Mensalidades</span>
+                  {% endif %}
+                </td>
+                <td class="small">{{ u.filename }}</td>
+                <td class="text-center">{{ u.total or '—' }}</td>
+                <td class="text-center">
+                  {% if u.novos is not none %}
+                    {% if u.novos > 0 %}
+                      <span class="badge bg-success">{{ u.novos }} novos</span>
+                    {% else %}
+                      <span class="badge bg-secondary">0 novos</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-muted">—</span>
                   {% endif %}
                 </td>
                 <td class="text-muted small">{{ u.uploaded_at | br_dt }}</td>
                 <td>
+                  {% if u.tipo == 'leads' %}
                   <a href="{{ url_for('report', upload_id=u.id) }}" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-eye me-1"></i>Ver
                   </a>
+                  {% endif %}
                 </td>
               </tr>
               {% endfor %}
