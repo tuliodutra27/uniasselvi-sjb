@@ -31,7 +31,13 @@
           <tbody>
             <tr>
               <th class="text-muted small ps-3" style="width:40%">CPF</th>
-              <td class="font-monospace small">{{ student.cpf_masked }}</td>
+              <td class="font-monospace small">
+                <span id="cpfDisplay">{{ student.cpf_masked }}</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1"
+                        id="revealCpfBtn" title="Revelar CPF">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </td>
             </tr>
             <tr>
               <th class="text-muted small ps-3">ID / Matrícula</th>
@@ -174,4 +180,19 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const cpf = '{{ student.cpf }}';
+    const fmt = cpf.length === 11
+      ? cpf.slice(0,3)+'.'+cpf.slice(3,6)+'.'+cpf.slice(6,9)+'-'+cpf.slice(9)
+      : cpf;
+    document.getElementById('revealCpfBtn').addEventListener('click', function () {
+      document.getElementById('cpfDisplay').textContent = fmt;
+      this.remove();
+    });
+  })();
+</script>
 {% endblock %}

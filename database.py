@@ -119,6 +119,21 @@ def _migrate_enrolled(conn):
         if col not in existing:
             conn.execute(f"ALTER TABLE enrolled_students ADD COLUMN {col} {typ}")
 
+    indexes = {row[1] for row in conn.execute("PRAGMA index_list(enrolled_students)")}
+    if "idx_enrolled_unique" not in indexes:
+        # Deduplicate before creating unique index (keep latest row per student+semester)
+        conn.execute("""
+            DELETE FROM enrolled_students
+            WHERE id NOT IN (
+                SELECT MAX(id) FROM enrolled_students
+                GROUP BY student_code, COALESCE(semestre, '')
+            )
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX idx_enrolled_unique
+            ON enrolled_students (student_code, COALESCE(semestre, ''))
+        """)
+
 
 def _migrate_payments(conn):
     cols = {row[1] for row in conn.execute("PRAGMA table_info(payments)")}
@@ -275,7 +290,7 @@ def get_filter_options():
         }
 
 
-def get_students_filtered(nome=None, course=None, polo=None, turno=None,
+def get_students_filtered(nome=None, cpf=None, course=None, polo=None, turno=None,
                           matriculou=None, tipo=None,
                           data_ini=None, data_fim=None, upload_id=None,
                           has_contact=None):
@@ -284,6 +299,11 @@ def get_students_filtered(nome=None, course=None, polo=None, turno=None,
     if nome:
         conditions.append("name LIKE ?")
         params.append(f"%{nome}%")
+    if cpf:
+        cpf_digits = "".join(c for c in cpf if c.isdigit())
+        if cpf_digits:
+            conditions.append("cpf LIKE ?")
+            params.append(f"%{cpf_digits}%")
     if course:
         conditions.append("course = ?")
         params.append(course)
@@ -446,7 +466,7 @@ def insert_enrolled_students(students: list[dict], upload_id: int):
         return
     with get_connection() as conn:
         conn.executemany(
-            """INSERT INTO enrolled_students
+            """INSERT OR REPLACE INTO enrolled_students
                (student_code, student_name, email, polo, course, modulo,
                 tipo_aluno, situacao_aluno, situacao_matricula, ativo,
                 semestre, turno, turma_dia, inadimplente, ultimo_acesso,

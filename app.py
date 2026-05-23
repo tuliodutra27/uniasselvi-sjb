@@ -66,9 +66,33 @@ def _wa_number(value):
         digits = "55" + digits
     return digits
 
-app.jinja_env.filters["br_dt"]    = _br_dt
-app.jinja_env.filters["br_d"]     = _br_d
-app.jinja_env.filters["wa_number"] = _wa_number
+
+def _mask_phone(value):
+    """Phone → masked display keeping DDD and last 4 digits: (22) ****-3429."""
+    if not value:
+        return ""
+    digits = "".join(c for c in str(value) if c.isdigit())
+    if len(digits) >= 10:
+        return f"({digits[:2]}) ****-{digits[-4:]}"
+    if digits:
+        return f"****-{digits[-4:]}" if len(digits) >= 4 else "****"
+    return value
+
+
+def _mask_email(value):
+    """Email → masked display: use***@domain.com."""
+    if not value or "@" not in str(value):
+        return value or ""
+    local, domain = str(value).split("@", 1)
+    visible = local[:2] if len(local) > 2 else local[:1]
+    return f"{visible}***@{domain}"
+
+
+app.jinja_env.filters["br_dt"]      = _br_dt
+app.jinja_env.filters["br_d"]       = _br_d
+app.jinja_env.filters["wa_number"]  = _wa_number
+app.jinja_env.filters["mask_phone"] = _mask_phone
+app.jinja_env.filters["mask_email"] = _mask_email
 
 with app.app_context():
     database.init_db()
@@ -683,6 +707,7 @@ def report(upload_id):
 def students():
     filters = {
         "nome":        request.args.get("nome", "").strip(),
+        "cpf":         request.args.get("cpf", "").strip(),
         "course":      request.args.get("course", ""),
         "polo":        request.args.get("polo", ""),
         "turno":       request.args.get("turno", ""),

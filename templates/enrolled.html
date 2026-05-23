@@ -303,8 +303,20 @@
     {% if students %}
     <div class="card">
       <div class="card-body p-0">
+
+        {# Barra acima da tabela com seletor de colunas #}
+        <div class="d-flex justify-content-end px-3 pt-2 pb-1">
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              <i class="bi bi-layout-three-columns me-1"></i>Colunas
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end py-2" id="colPickerEnrolled" style="min-width:160px"></ul>
+          </div>
+        </div>
+
         <div class="table-responsive" style="max-height:90vh; overflow-y:auto;">
-          <table class="table table-sm table-hover align-middle mb-0">
+          <table class="table table-sm table-hover align-middle mb-0" id="enrolledTable">
             <thead class="table-light sticky-top">
               <tr>
                 <th style="min-width:180px">Nome</th>
@@ -375,21 +387,11 @@
                   {% endif %}
                 </td>
                 <td class="small">
-                  {% if s.cellphone %}
+                  {% set num = s.cellphone or s.phone %}
+                  {% if num %}
                     <div class="d-flex align-items-center gap-1">
-                      <span>{{ s.cellphone }}</span>
-                      {% set wa = s.cellphone | wa_number %}
-                      {% if wa %}
-                      <a href="https://wa.me/{{ wa }}" target="_blank"
-                         class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
-                        <i class="bi bi-whatsapp"></i>
-                      </a>
-                      {% endif %}
-                    </div>
-                  {% elif s.phone %}
-                    <div class="d-flex align-items-center gap-1">
-                      <span>{{ s.phone }}</span>
-                      {% set wa = s.phone | wa_number %}
+                      <span>{{ num | mask_phone }}</span>
+                      {% set wa = num | wa_number %}
                       {% if wa %}
                       <a href="https://wa.me/{{ wa }}" target="_blank"
                          class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
@@ -457,6 +459,62 @@
   document.querySelectorAll('#filterForm select').forEach(el => {
     el.addEventListener('change', () => document.getElementById('filterForm').submit());
   });
+
+  /* Column picker */
+  (function () {
+    const TABLE   = 'enrolledTable';
+    const PREF    = 'cols_enrolled_v1';
+    const columns = [
+      { key: 'nome',       label: 'Nome',        idx: 1,  required: true },
+      { key: 'codigo',     label: 'Código',       idx: 2  },
+      { key: 'curso',      label: 'Curso',        idx: 3  },
+      { key: 'tipo',       label: 'Tipo',         idx: 4  },
+      { key: 'turno',      label: 'Turno',        idx: 5  },
+      { key: 'sem',        label: 'Semestre',     idx: 6  },
+      { key: 'ativo',      label: 'Ativo',        idx: 7  },
+      { key: 'sit_aluno',  label: 'Sit. Aluno',   idx: 8  },
+      { key: 'matricula',  label: 'Matrícula',    idx: 9  },
+      { key: 'inadimp',    label: 'Inadimp.',     idx: 10 },
+      { key: 'celular',    label: 'Celular',      idx: 11 },
+      { key: 'detalhes',   label: 'Detalhes',     idx: 12, required: true },
+    ];
+
+    let hidden;
+    try { hidden = JSON.parse(localStorage.getItem(PREF)) || []; }
+    catch(e) { hidden = []; }
+
+    function applyPrefs() {
+      let old = document.getElementById('_colStyleEnrolled');
+      if (old) old.remove();
+      const s = document.createElement('style');
+      s.id = '_colStyleEnrolled';
+      hidden.forEach(key => {
+        const col = columns.find(c => c.key === key);
+        if (col) s.textContent += `#${TABLE} th:nth-child(${col.idx}),#${TABLE} td:nth-child(${col.idx}){display:none}`;
+      });
+      document.head.appendChild(s);
+    }
+
+    applyPrefs();
+
+    const picker = document.getElementById('colPickerEnrolled');
+    if (picker) {
+      columns.filter(c => !c.required).forEach(col => {
+        const li = document.createElement('li');
+        const checked = hidden.includes(col.key) ? '' : 'checked';
+        li.innerHTML = `<label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer">
+          <input type="checkbox" class="form-check-input mt-0" ${checked}>
+          <span class="small">${col.label}</span></label>`;
+        li.querySelector('input').addEventListener('change', function () {
+          if (this.checked) hidden = hidden.filter(k => k !== col.key);
+          else if (!hidden.includes(col.key)) hidden.push(col.key);
+          localStorage.setItem(PREF, JSON.stringify(hidden));
+          applyPrefs();
+        });
+        picker.appendChild(li);
+      });
+    }
+  })();
 
   const dropZone   = document.getElementById('enrollDropZone');
   const fileInput  = document.getElementById('enrollFileInput');
