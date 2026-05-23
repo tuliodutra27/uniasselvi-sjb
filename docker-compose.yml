@@ -11,3 +11,11 @@ services:
     volumes:
       - ./data/db:/app/data
       - ./data/uploads:/app/uploads
+
+x-casaos:
+  title:
+    en_us: Uniasselvi SJB
+  hostname: uniasselvi-sjb.homelab
+  scheme: http
+  port_map: "5000"
+  index: /
