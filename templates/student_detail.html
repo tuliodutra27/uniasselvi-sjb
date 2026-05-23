@@ -185,13 +185,19 @@
 {% block scripts %}
 <script>
   (function () {
-    const cpf = '{{ student.cpf }}';
-    const fmt = cpf.length === 11
+    const masked = '{{ student.cpf_masked }}';
+    const cpf    = '{{ student.cpf }}';
+    const full   = cpf.length === 11
       ? cpf.slice(0,3)+'.'+cpf.slice(3,6)+'.'+cpf.slice(6,9)+'-'+cpf.slice(9)
       : cpf;
-    document.getElementById('revealCpfBtn').addEventListener('click', function () {
-      document.getElementById('cpfDisplay').textContent = fmt;
-      this.remove();
+    let visible = false;
+    const display = document.getElementById('cpfDisplay');
+    const btn     = document.getElementById('revealCpfBtn');
+    btn.addEventListener('click', function () {
+      visible = !visible;
+      display.textContent = visible ? full : masked;
+      btn.innerHTML = visible ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+      btn.title = visible ? 'Ocultar CPF' : 'Revelar CPF';
     });
   })();
 </script>
