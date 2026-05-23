@@ -1,7 +1,7 @@
 services:
-  student-enrollment-tracker:
+  uniasselvi-sjb:
     build: .
-    container_name: student-enrollment-tracker
+    container_name: uniasselvi-sjb
     restart: unless-stopped
     ports:
       - "5000:5000"
