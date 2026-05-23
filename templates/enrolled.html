@@ -9,6 +9,14 @@
     <h4 class="mb-0">Alunos Matriculados</h4>
     <p class="text-muted small mb-0">Importe o arquivo <strong>alunos-total.csv</strong> exportado do sistema da faculdade.</p>
   </div>
+  {% if current_user.is_admin %}
+  <form method="post" action="{{ url_for('reprocess_enrolled') }}"
+        onsubmit="return confirm('Re-processar contatos de todos os matriculados a partir dos dados brutos salvos?')">
+    <button type="submit" class="btn btn-sm btn-outline-info">
+      <i class="bi bi-arrow-repeat me-1"></i>Re-processar contatos
+    </button>
+  </form>
+  {% endif %}
   <button class="btn btn-sm btn-primary" type="button"
           data-bs-toggle="collapse" data-bs-target="#uploadPanel">
     <i class="bi bi-upload me-1"></i>Importar CSV

@@ -113,7 +113,7 @@ def _migrate(conn):
 
 
 def _migrate_enrolled(conn):
-    new_cols = [("phone", "TEXT"), ("cellphone", "TEXT")]
+    new_cols = [("phone", "TEXT"), ("cellphone", "TEXT"), ("raw_data", "TEXT")]
     existing = {row[1] for row in conn.execute("PRAGMA table_info(enrolled_students)")}
     for col, typ in new_cols:
         if col not in existing:
@@ -450,13 +450,30 @@ def insert_enrolled_students(students: list[dict], upload_id: int):
                (student_code, student_name, email, polo, course, modulo,
                 tipo_aluno, situacao_aluno, situacao_matricula, ativo,
                 semestre, turno, turma_dia, inadimplente, ultimo_acesso,
-                forma_ingresso, phone, cellphone, enrollment_upload_id)
+                forma_ingresso, phone, cellphone, raw_data, enrollment_upload_id)
                VALUES
                (:student_code,:student_name,:email,:polo,:course,:modulo,
                 :tipo_aluno,:situacao_aluno,:situacao_matricula,:ativo,
                 :semestre,:turno,:turma_dia,:inadimplente,:ultimo_acesso,
-                :forma_ingresso,:phone,:cellphone,:enrollment_upload_id)""",
+                :forma_ingresso,:phone,:cellphone,:raw_data,:enrollment_upload_id)""",
             [{**s, "enrollment_upload_id": upload_id} for s in students],
+        )
+
+
+def get_all_enrolled_raw():
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT id, raw_data FROM enrolled_students WHERE raw_data IS NOT NULL AND raw_data != ''"
+        ).fetchall()
+
+
+def bulk_update_enrolled_contacts(updates: list[dict]):
+    if not updates:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            "UPDATE enrolled_students SET phone=?, cellphone=? WHERE id=?",
+            [(u["phone"], u["cellphone"], u["id"]) for u in updates],
         )
 
 

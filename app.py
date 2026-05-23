@@ -330,6 +330,7 @@ def parse_enrolled_csv(filepath: str) -> tuple[list[dict], str | None]:
             "forma_ingresso":     _clean(row[col_ingresso]) if col_ingresso else "",
             "phone":              _clean(row[col_phone])    if col_phone    else "",
             "cellphone":          _clean(row[col_cell])     if col_cell     else "",
+            "raw_data":           json.dumps({c: _clean(str(row[c])) for c in df.columns}, ensure_ascii=False),
         })
     return students, None
 
@@ -600,6 +601,26 @@ def reprocess_leads():
     else:
         flash("Nenhum contato novo encontrado. Os arquivos CSV originais podem não estar mais disponíveis.", "warning")
     return redirect(url_for("history"))
+
+
+@app.route("/admin/reprocess-enrolled", methods=["POST"])
+@admin_required
+def reprocess_enrolled():
+    raw_rows = database.get_all_enrolled_raw()
+    updates = []
+    for row in raw_rows:
+        phone, cellphone = _extract_contacts_from_raw(row["raw_data"])
+        if phone or cellphone:
+            updates.append({"id": row["id"], "phone": phone, "cellphone": cellphone})
+    if updates:
+        database.bulk_update_enrolled_contacts(updates)
+    database.add_audit_log(session["username"], request.remote_addr, "reprocess_enrolled",
+                           f"{len(updates)} alunos matriculados com contato atualizado")
+    if updates:
+        flash(f"{len(updates)} aluno(s) matriculado(s) tiveram contato atualizado.", "success")
+    else:
+        flash("Nenhum contato encontrado nos dados brutos. Reimporte os arquivos para armazenar o raw_data.", "warning")
+    return redirect(url_for("enrolled"))
 
 
 # ── MAIN ROUTES ───────────────────────────────────────────────────────────────
