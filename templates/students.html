@@ -184,6 +184,7 @@
                 <th style="min-width:120px">Tipo</th>
                 <th>Dt. Inscrição</th>
                 <th>Dt. Matrícula</th>
+                <th style="min-width:150px">Celular</th>
                 <th class="text-center">Detalhes</th>
               </tr>
             </thead>
@@ -214,6 +215,23 @@
                 <td class="small text-muted">{{ s.tipo_inscricao or '—' }}</td>
                 <td class="small">{{ s.inscription_date | br_d }}</td>
                 <td class="small">{{ s.enrollment_date | br_d }}</td>
+                <td class="small">
+                  {% set num = s.cellphone or s.phone %}
+                  {% if num %}
+                    <div class="d-flex align-items-center gap-1">
+                      <span>{{ num }}</span>
+                      {% set wa = num | wa_number %}
+                      {% if wa %}
+                      <a href="https://wa.me/{{ wa }}" target="_blank"
+                         class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
+                        <i class="bi bi-whatsapp"></i>
+                      </a>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
                 <td class="text-center">
                   <a href="{{ url_for('student_detail', cpf=s.cpf) }}"
                      class="btn btn-sm btn-outline-primary py-0 px-2" title="Ver detalhes e anotações">

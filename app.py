@@ -300,6 +300,10 @@ def parse_enrolled_csv(filepath: str) -> tuple[list[dict], str | None]:
     col_inad     = nc.get("inadimplente")
     col_acesso   = nc.get("ultimo_acesso") or _find_col_partial(nc, "ultimo_acesso", "ultimo acesso")
     col_ingresso = nc.get("forma_ingresso")
+    col_phone    = (nc.get("telefone") or nc.get("fone") or nc.get("tel") or
+                    nc.get("telefone_fixo") or nc.get("tel_fixo"))
+    col_cell     = (nc.get("celular") or nc.get("cell") or nc.get("cel") or
+                    nc.get("mobile") or nc.get("telefone_celular") or nc.get("tel_celular"))
 
     students = []
     for _, row in df.iterrows():
@@ -324,6 +328,8 @@ def parse_enrolled_csv(filepath: str) -> tuple[list[dict], str | None]:
             "inadimplente":       _clean(row[col_inad])     if col_inad     else "",
             "ultimo_acesso":      _normalize_date(_clean(row[col_acesso]))   if col_acesso   else "",
             "forma_ingresso":     _clean(row[col_ingresso]) if col_ingresso else "",
+            "phone":              _clean(row[col_phone])    if col_phone    else "",
+            "cellphone":          _clean(row[col_cell])     if col_cell     else "",
         })
     return students, None
 
@@ -709,6 +715,7 @@ def enrolled():
         "situacao_aluno":     request.args.get("situacao_aluno", ""),
         "situacao_matricula": request.args.get("situacao_matricula", ""),
         "upload_id":          request.args.get("upload_id", ""),
+        "has_contact":        request.args.get("has_contact", ""),
     }
     active = {k: v for k, v in filters.items() if v}
 

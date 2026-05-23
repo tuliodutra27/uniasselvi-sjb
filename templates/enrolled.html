@@ -259,6 +259,17 @@
           </div>
 
           <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Contato</label>
+            <select name="has_contact" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="any"   {% if filters.has_contact == 'any'   %}selected{% endif %}>Com telefone ou celular</option>
+              <option value="cell"  {% if filters.has_contact == 'cell'  %}selected{% endif %}>Com celular</option>
+              <option value="phone" {% if filters.has_contact == 'phone' %}selected{% endif %}>Com telefone</option>
+              <option value="none"  {% if filters.has_contact == 'none'  %}selected{% endif %}>Sem contato</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
             <label class="form-label small fw-semibold mb-1">Lote de importação</label>
             <select name="upload_id" class="form-select form-select-sm">
               <option value="">Todos</option>
@@ -298,6 +309,7 @@
                 <th class="text-center" style="min-width:105px">Sit. Aluno</th>
                 <th class="text-center" style="min-width:105px">Matrícula</th>
                 <th class="text-center">Inadimp.</th>
+                <th style="min-width:150px">Celular</th>
                 <th class="text-center">Detalhes</th>
               </tr>
             </thead>
@@ -350,6 +362,33 @@
                     <span class="badge bg-danger">Sim</span>
                   {% elif s.inadimplente in ('Não', 'Nao') %}
                     <span class="badge bg-success">Não</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="small">
+                  {% if s.cellphone %}
+                    <div class="d-flex align-items-center gap-1">
+                      <span>{{ s.cellphone }}</span>
+                      {% set wa = s.cellphone | wa_number %}
+                      {% if wa %}
+                      <a href="https://wa.me/{{ wa }}" target="_blank"
+                         class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
+                        <i class="bi bi-whatsapp"></i>
+                      </a>
+                      {% endif %}
+                    </div>
+                  {% elif s.phone %}
+                    <div class="d-flex align-items-center gap-1">
+                      <span>{{ s.phone }}</span>
+                      {% set wa = s.phone | wa_number %}
+                      {% if wa %}
+                      <a href="https://wa.me/{{ wa }}" target="_blank"
+                         class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
+                        <i class="bi bi-whatsapp"></i>
+                      </a>
+                      {% endif %}
+                    </div>
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}

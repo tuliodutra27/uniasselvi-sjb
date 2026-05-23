@@ -90,7 +90,7 @@
                 </td>
               </tr>
               {# Linha expandida com dados extras #}
-              {% if e.email or e.polo or e.tipo_aluno or e.forma_ingresso or e.ultimo_acesso %}
+              {% if e.email or e.polo or e.tipo_aluno or e.forma_ingresso or e.ultimo_acesso or e.phone or e.cellphone %}
               <tr style="background:var(--bs-secondary-bg)">
                 <td colspan="7" class="small text-muted ps-3 pb-2">
                   {% if e.polo %}<span class="me-3"><i class="bi bi-geo-alt me-1"></i>{{ e.polo }}</span>{% endif %}
@@ -98,6 +98,16 @@
                   {% if e.tipo_aluno %}<span class="me-3"><i class="bi bi-tag me-1"></i>{{ e.tipo_aluno }}</span>{% endif %}
                   {% if e.forma_ingresso %}<span class="me-3"><i class="bi bi-door-open me-1"></i>{{ e.forma_ingresso }}</span>{% endif %}
                   {% if e.ultimo_acesso %}<span class="me-3"><i class="bi bi-clock me-1"></i>Último acesso: {{ e.ultimo_acesso }}</span>{% endif %}
+                  {% if e.phone %}
+                    <span class="me-2"><i class="bi bi-telephone me-1"></i>{{ e.phone }}</span>
+                    {% set wa = e.phone | wa_number %}
+                    {% if wa %}<a href="https://wa.me/{{ wa }}" target="_blank" class="btn btn-success btn-sm py-0 px-1 me-3" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>{% endif %}
+                  {% endif %}
+                  {% if e.cellphone %}
+                    <span class="me-2"><i class="bi bi-phone me-1"></i>{{ e.cellphone }}</span>
+                    {% set wa = e.cellphone | wa_number %}
+                    {% if wa %}<a href="https://wa.me/{{ wa }}" target="_blank" class="btn btn-success btn-sm py-0 px-1 me-3" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>{% endif %}
+                  {% endif %}
                 </td>
               </tr>
               {% endif %}

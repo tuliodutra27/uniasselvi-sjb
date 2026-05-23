@@ -88,6 +88,7 @@ def init_db():
             );
         """)
         _migrate(conn)
+        _migrate_enrolled(conn)
         _migrate_payments(conn)
         _migrate_notes(conn)
         _migrate_auth(conn)
@@ -109,6 +110,14 @@ def _migrate(conn):
     for col, typ in new_cols:
         if col not in existing:
             conn.execute(f"ALTER TABLE students ADD COLUMN {col} {typ}")
+
+
+def _migrate_enrolled(conn):
+    new_cols = [("phone", "TEXT"), ("cellphone", "TEXT")]
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(enrolled_students)")}
+    for col, typ in new_cols:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE enrolled_students ADD COLUMN {col} {typ}")
 
 
 def _migrate_payments(conn):
@@ -441,12 +450,12 @@ def insert_enrolled_students(students: list[dict], upload_id: int):
                (student_code, student_name, email, polo, course, modulo,
                 tipo_aluno, situacao_aluno, situacao_matricula, ativo,
                 semestre, turno, turma_dia, inadimplente, ultimo_acesso,
-                forma_ingresso, enrollment_upload_id)
+                forma_ingresso, phone, cellphone, enrollment_upload_id)
                VALUES
                (:student_code,:student_name,:email,:polo,:course,:modulo,
                 :tipo_aluno,:situacao_aluno,:situacao_matricula,:ativo,
                 :semestre,:turno,:turma_dia,:inadimplente,:ultimo_acesso,
-                :forma_ingresso,:enrollment_upload_id)""",
+                :forma_ingresso,:phone,:cellphone,:enrollment_upload_id)""",
             [{**s, "enrollment_upload_id": upload_id} for s in students],
         )
 
@@ -479,7 +488,8 @@ def get_enrolled_filter_options():
 def get_enrolled_filtered(nome=None, course=None, polo=None, turno=None,
                           semestre=None, ativo=None, inadimplente=None,
                           tipo_aluno=None, situacao_aluno=None,
-                          situacao_matricula=None, upload_id=None):
+                          situacao_matricula=None, upload_id=None,
+                          has_contact=None):
     conditions, params = [], []
 
     if nome:
@@ -515,6 +525,14 @@ def get_enrolled_filtered(nome=None, course=None, polo=None, turno=None,
     if upload_id:
         conditions.append("enrollment_upload_id = ?")
         params.append(int(upload_id))
+    if has_contact == "any":
+        conditions.append("((phone IS NOT NULL AND phone != '') OR (cellphone IS NOT NULL AND cellphone != ''))")
+    elif has_contact == "cell":
+        conditions.append("(cellphone IS NOT NULL AND cellphone != '')")
+    elif has_contact == "phone":
+        conditions.append("(phone IS NOT NULL AND phone != '')")
+    elif has_contact == "none":
+        conditions.append("(phone IS NULL OR phone = '') AND (cellphone IS NULL OR cellphone = '')")
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
