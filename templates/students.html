@@ -135,13 +135,24 @@
           </div>
 
           <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">Contato</label>
+            <select name="has_contact" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="any"   {% if filters.has_contact == 'any'      %}selected{% endif %}>Com telefone ou celular</option>
+              <option value="phone" {% if filters.has_contact == 'phone'    %}selected{% endif %}>Com telefone</option>
+              <option value="cell"  {% if filters.has_contact == 'cell'     %}selected{% endif %}>Com celular</option>
+              <option value="none"  {% if filters.has_contact == 'none'     %}selected{% endif %}>Sem contato</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
             <label class="form-label small fw-semibold mb-1">Lote de upload</label>
             <select name="upload_id" class="form-select form-select-sm">
               <option value="">Todos os uploads</option>
               {% for u in options.uploads %}
               <option value="{{ u.id }}"
                 {% if filters.upload_id == u.id|string %}selected{% endif %}>
-                #{{ u.id }} – {{ u.uploaded_at[:10] }} ({{ u.filename[:20] }}…)
+                #{{ u.id }} – {{ u.uploaded_at | br_d }} ({{ u.filename[:20] }}…)
               </option>
               {% endfor %}
             </select>
@@ -201,8 +212,8 @@
                   {% else %}—{% endif %}
                 </td>
                 <td class="small text-muted">{{ s.tipo_inscricao or '—' }}</td>
-                <td class="small">{{ s.inscription_date or '—' }}</td>
-                <td class="small">{{ s.enrollment_date or '—' }}</td>
+                <td class="small">{{ s.inscription_date | br_d }}</td>
+                <td class="small">{{ s.enrollment_date | br_d }}</td>
                 <td class="text-center">
                   <a href="{{ url_for('student_detail', cpf=s.cpf) }}"
                      class="btn btn-sm btn-outline-primary py-0 px-2" title="Ver detalhes e anotações">

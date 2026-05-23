@@ -101,6 +101,9 @@ def _migrate(conn):
         ("matriculou",       "TEXT"),
         ("tipo_inscricao",   "TEXT"),
         ("first_upload_id",  "INTEGER"),
+        ("phone",            "TEXT"),
+        ("cellphone",        "TEXT"),
+        ("raw_data",         "TEXT"),
     ]
     existing = {row[1] for row in conn.execute("PRAGMA table_info(students)")}
     for col, typ in new_cols:
@@ -140,9 +143,13 @@ def _migrate_notes(conn):
             entity_type TEXT NOT NULL,
             entity_id   TEXT NOT NULL,
             note        TEXT NOT NULL,
+            created_by  TEXT,
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(notes)")}
+    if "created_by" not in cols:
+        conn.execute("ALTER TABLE notes ADD COLUMN created_by TEXT")
 
 
 def _migrate_auth(conn):
@@ -191,11 +198,11 @@ def insert_new_students(students: list[dict], upload_id: int):
             """INSERT OR IGNORE INTO students
                (cpf, name, student_id, course, enrollment_date,
                 inscription_date, polo, turno, matriculou, tipo_inscricao,
-                first_upload_id)
+                phone, cellphone, raw_data, first_upload_id)
                VALUES
                (:cpf,:name,:student_id,:course,:enrollment_date,
                 :inscription_date,:polo,:turno,:matriculou,:tipo_inscricao,
-                :first_upload_id)""",
+                :phone,:cellphone,:raw_data,:first_upload_id)""",
             [{**s, "first_upload_id": upload_id} for s in students],
         )
 
@@ -242,7 +249,8 @@ def get_filter_options():
 
 def get_students_filtered(nome=None, course=None, polo=None, turno=None,
                           matriculou=None, tipo=None,
-                          data_ini=None, data_fim=None, upload_id=None):
+                          data_ini=None, data_fim=None, upload_id=None,
+                          has_contact=None):
     conditions, params = [], []
 
     if nome:
@@ -272,6 +280,14 @@ def get_students_filtered(nome=None, course=None, polo=None, turno=None,
     if upload_id:
         conditions.append("first_upload_id = ?")
         params.append(int(upload_id))
+    if has_contact == "any":
+        conditions.append("((phone IS NOT NULL AND phone != '') OR (cellphone IS NOT NULL AND cellphone != ''))")
+    elif has_contact == "phone":
+        conditions.append("(phone IS NOT NULL AND phone != '')")
+    elif has_contact == "cell":
+        conditions.append("(cellphone IS NOT NULL AND cellphone != '')")
+    elif has_contact == "none":
+        conditions.append("(phone IS NULL OR phone = '') AND (cellphone IS NULL OR cellphone = '')")
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     with get_connection() as conn:
@@ -513,11 +529,11 @@ def get_note(note_id: int):
         return conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
 
 
-def add_note(entity_type: str, entity_id: str, note: str):
+def add_note(entity_type: str, entity_id: str, note: str, created_by: str = None):
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO notes (entity_type, entity_id, note) VALUES (?,?,?)",
-            (entity_type, entity_id, note),
+            "INSERT INTO notes (entity_type, entity_id, note, created_by) VALUES (?,?,?,?)",
+            (entity_type, entity_id, note, created_by),
         )
 
 
@@ -540,6 +556,33 @@ def get_note_counts(entity_type: str, ids: list) -> dict:
 
 
 # ── DETALHES DE ALUNO ────────────────────────────────────────────────────────
+
+def get_all_students_raw():
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT cpf, raw_data FROM students WHERE raw_data IS NOT NULL AND raw_data != ''"
+        ).fetchall()
+
+
+def bulk_update_contacts(updates: list[dict]):
+    if not updates:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            "UPDATE students SET phone=?, cellphone=? WHERE cpf=?",
+            [(u["phone"], u["cellphone"], u["cpf"]) for u in updates],
+        )
+
+
+def bulk_update_raw_data(updates: list[dict]):
+    if not updates:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            "UPDATE students SET raw_data=? WHERE cpf=? AND (raw_data IS NULL OR raw_data = '')",
+            [(u["raw_data"], u["cpf"]) for u in updates],
+        )
+
 
 def get_student(cpf: str):
     with get_connection() as conn:

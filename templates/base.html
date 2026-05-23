@@ -3,51 +3,211 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Indicador de Matrículas{% endblock %}</title>
+  <title>{% block title %}Uniasselvi – Polo São João da Barra{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    .navbar-brand { font-weight: 700; letter-spacing: -0.5px; }
-    .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    /* ── Uniasselvi Brand ───────────────────────────────── */
+    :root {
+      --uni-yellow:       #FFB81C;
+      --uni-yellow-hover: #E6A500;
+      --uni-yellow-soft:  rgba(255,184,28,.15);
+      --uni-dark:         #1A1A1A;
+      --uni-dark-2:       #2C2C2C;
+    }
+
+    /* ── Navbar ─────────────────────────────────────────── */
+    .navbar {
+      background-color: var(--uni-dark) !important;
+      border-bottom: 3px solid var(--uni-yellow);
+      padding-top: .6rem;
+      padding-bottom: .6rem;
+    }
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      text-decoration: none;
+    }
+    .brand-icon {
+      font-size: 1.7rem;
+      color: var(--uni-yellow);
+      line-height: 1;
+    }
+    .brand-name {
+      display: block;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--uni-yellow);
+      letter-spacing: 2px;
+      line-height: 1.1;
+    }
+    .brand-sub {
+      display: block;
+      font-size: .6rem;
+      color: rgba(255,255,255,.5);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    /* ── Navbar buttons ──────────────────────────────────── */
+    .navbar .nav-btn {
+      color: rgba(255,255,255,.8) !important;
+      border-color: rgba(255,255,255,.2) !important;
+      font-size: .8rem;
+    }
+    .navbar .nav-btn:hover,
+    .navbar .nav-btn.active {
+      background-color: var(--uni-yellow) !important;
+      border-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+    }
+    .navbar .nav-btn-icon {
+      color: rgba(255,255,255,.7) !important;
+      border-color: rgba(255,255,255,.2) !important;
+    }
+    .navbar .nav-btn-icon:hover {
+      background-color: var(--uni-yellow) !important;
+      border-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+    }
+    .navbar .dropdown-menu {
+      border: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    }
+    .navbar .dropdown-item:hover {
+      background-color: var(--uni-yellow-soft);
+      color: var(--uni-yellow-hover);
+    }
+    .user-chip {
+      font-size: .75rem;
+      color: rgba(255,255,255,.6);
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    .user-chip .badge {
+      background-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+      font-size: .65rem;
+    }
+
+    /* ── Primary overrides ───────────────────────────────── */
+    .btn-primary {
+      background-color: var(--uni-yellow) !important;
+      border-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+      font-weight: 600;
+    }
+    .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+      background-color: var(--uni-yellow-hover) !important;
+      border-color: var(--uni-yellow-hover) !important;
+      color: var(--uni-dark) !important;
+    }
+    .btn-outline-primary {
+      color: var(--uni-yellow-hover) !important;
+      border-color: var(--uni-yellow) !important;
+    }
+    .btn-outline-primary:hover {
+      background-color: var(--uni-yellow) !important;
+      border-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+    }
+    .badge.bg-primary {
+      background-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+    }
+    .text-primary { color: var(--uni-yellow-hover) !important; }
+    .border-primary { border-color: var(--uni-yellow) !important; }
+
+    /* ── Form focus ──────────────────────────────────────── */
+    .form-control:focus, .form-select:focus {
+      border-color: var(--uni-yellow);
+      box-shadow: 0 0 0 .25rem var(--uni-yellow-soft);
+    }
+
+    /* ── Cards ───────────────────────────────────────────── */
+    .card {
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      border-radius: .5rem;
+    }
+    .card-header {
+      border-bottom: 1px solid rgba(0,0,0,.07);
+    }
+
+    /* ── Table headers ───────────────────────────────────── */
+    .table thead.table-light th,
+    .sticky-top.table-light th {
+      background-color: var(--uni-dark) !important;
+      color: var(--uni-yellow) !important;
+      border-color: #333 !important;
+    }
+    [data-bs-theme="dark"] .table thead.table-light th,
+    [data-bs-theme="dark"] .sticky-top.table-light th {
+      background-color: #0d0d0d !important;
+    }
+
+    /* ── Drop zone ───────────────────────────────────────── */
     .drop-zone {
-      border: 2px dashed #0d6efd;
+      border: 2px dashed var(--uni-yellow);
       border-radius: 12px;
       padding: 3rem;
       text-align: center;
       cursor: pointer;
       transition: background .2s;
     }
-    .drop-zone:hover, .drop-zone.dragover { background: rgba(13,110,253,.08); }
-    .drop-zone i { font-size: 2.5rem; color: #0d6efd; }
-    [data-bs-theme="dark"] .drop-zone { border-color: #6ea8fe; }
-    [data-bs-theme="dark"] .drop-zone i { color: #6ea8fe; }
+    .drop-zone:hover, .drop-zone.dragover {
+      background: var(--uni-yellow-soft);
+    }
+    .drop-zone i { font-size: 2.5rem; color: var(--uni-yellow); }
+    [data-bs-theme="dark"] .drop-zone { border-color: var(--uni-yellow); }
+    [data-bs-theme="dark"] .drop-zone i { color: var(--uni-yellow); }
     [data-bs-theme="dark"] .drop-zone:hover,
-    [data-bs-theme="dark"] .drop-zone.dragover { background: rgba(110,168,254,.1); }
+    [data-bs-theme="dark"] .drop-zone.dragover { background: var(--uni-yellow-soft); }
+
+    /* ── Misc ────────────────────────────────────────────── */
+    .navbar-brand { font-weight: 700; }
+    .badge.bg-light {
+      background-color: var(--uni-yellow) !important;
+      color: var(--uni-dark) !important;
+    }
+
+    /* ── Dark mode card header ───────────────────────────── */
+    [data-bs-theme="dark"] .card-header {
+      border-color: rgba(255,255,255,.07);
+    }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-dark bg-primary mb-4">
+  <nav class="navbar mb-4">
     <div class="container-fluid px-4">
       <a class="navbar-brand" href="{{ url_for('index') }}">
-        <i class="bi bi-mortarboard-fill me-2"></i>Indicador de Matrículas
+        <span class="brand-icon"><i class="bi bi-mortarboard-fill"></i></span>
+        <span>
+          <span class="brand-name">UNIASSELVI</span>
+          <span class="brand-sub">Polo São João da Barra</span>
+        </span>
       </a>
+
       <div class="d-flex gap-2 align-items-center flex-wrap">
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('students') }}" class="btn btn-outline-light btn-sm">
+        <a href="{{ url_for('students') }}" class="btn btn-sm btn-outline-light nav-btn">
           <i class="bi bi-people-fill me-1"></i>Alunos
         </a>
-        <a href="{{ url_for('enrolled') }}" class="btn btn-outline-light btn-sm">
+        <a href="{{ url_for('enrolled') }}" class="btn btn-sm btn-outline-light nav-btn">
           <i class="bi bi-person-check-fill me-1"></i>Matriculados
         </a>
-        <a href="{{ url_for('payments') }}" class="btn btn-outline-light btn-sm">
+        <a href="{{ url_for('payments') }}" class="btn btn-sm btn-outline-light nav-btn">
           <i class="bi bi-credit-card me-1"></i>Mensalidades
         </a>
-        <a href="{{ url_for('history') }}" class="btn btn-outline-light btn-sm">
+        <a href="{{ url_for('history') }}" class="btn btn-sm btn-outline-light nav-btn">
           <i class="bi bi-clock-history me-1"></i>Histórico
         </a>
         {% if current_user.is_admin %}
         <div class="dropdown">
-          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <button class="btn btn-sm btn-outline-light nav-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
             <i class="bi bi-shield-lock me-1"></i>Admin
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
@@ -66,17 +226,17 @@
         {% endif %}
         {% endif %}
 
-        <button id="themeToggle" class="btn btn-outline-light btn-sm" title="Alternar tema">
+        <button id="themeToggle" class="btn btn-sm btn-outline-light nav-btn-icon" title="Alternar tema">
           <i class="bi bi-moon-fill" id="themeIcon"></i>
         </button>
 
         {% if current_user.is_authenticated %}
-        <span class="text-white-50 small d-flex align-items-center gap-1">
+        <span class="user-chip">
           <i class="bi bi-person-fill"></i>
           <span>{{ current_user.username }}</span>
-          <span class="badge bg-light text-primary">{{ current_user.role }}</span>
+          <span class="badge">{{ current_user.role }}</span>
         </span>
-        <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light nav-btn">
           <i class="bi bi-box-arrow-right me-1"></i>Sair
         </a>
         {% endif %}
@@ -100,9 +260,9 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     (function () {
-      const html = document.documentElement;
+      const html   = document.documentElement;
       const toggle = document.getElementById('themeToggle');
-      const icon = document.getElementById('themeIcon');
+      const icon   = document.getElementById('themeIcon');
 
       function applyTheme(theme) {
         html.setAttribute('data-bs-theme', theme);

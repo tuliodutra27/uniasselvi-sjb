@@ -64,15 +64,23 @@
             </tr>
             <tr>
               <th class="text-muted small ps-3">Data de inscrição</th>
-              <td class="small">{{ student.inscription_date or '—' }}</td>
+              <td class="small">{{ student.inscription_date | br_d }}</td>
             </tr>
             <tr>
               <th class="text-muted small ps-3">Data de matrícula</th>
-              <td class="small">{{ student.enrollment_date or '—' }}</td>
+              <td class="small">{{ student.enrollment_date | br_d }}</td>
+            </tr>
+            <tr>
+              <th class="text-muted small ps-3">Telefone</th>
+              <td class="small">{{ student.phone or '—' }}</td>
+            </tr>
+            <tr>
+              <th class="text-muted small ps-3">Celular</th>
+              <td class="small">{{ student.cellphone or '—' }}</td>
             </tr>
             <tr>
               <th class="text-muted small ps-3">Primeiro visto em</th>
-              <td class="small text-muted">{{ (student.first_seen_at or '')[:16] or '—' }}</td>
+              <td class="small text-muted">{{ student.first_seen_at | br_dt }}</td>
             </tr>
           </tbody>
         </table>
@@ -110,11 +118,15 @@
           <hr class="my-3">
           <div class="d-flex flex-column gap-3">
             {% for n in notes %}
-            <div class="border rounded p-3 position-relative bg-light">
+            <div class="border rounded p-3 position-relative" style="background:var(--bs-secondary-bg)">
               <p class="mb-1" style="white-space:pre-wrap">{{ n.note }}</p>
               <div class="d-flex align-items-center justify-content-between mt-2">
                 <small class="text-muted">
-                  <i class="bi bi-clock me-1"></i>{{ n.created_at[:16] }}
+                  {% if n.created_by %}
+                    <i class="bi bi-person me-1"></i>{{ n.created_by }}
+                    <span class="mx-1">·</span>
+                  {% endif %}
+                  <i class="bi bi-clock me-1"></i>{{ n.created_at | br_dt }}
                 </small>
                 <form method="post" action="{{ url_for('delete_note', note_id=n.id) }}"
                       onsubmit="return confirm('Excluir esta anotação?')">

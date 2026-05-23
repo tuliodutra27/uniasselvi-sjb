@@ -80,7 +80,7 @@
                   <span class="badge bg-secondary">Usuário</span>
                 {% endif %}
               </td>
-              <td class="small text-muted">{{ u.created_at[:16] }}</td>
+              <td class="small text-muted">{{ u.created_at | br_dt }}</td>
               <td class="small text-muted">{{ u.created_by or '—' }}</td>
 
               {# Alterar perfil #}

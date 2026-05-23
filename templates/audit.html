@@ -26,7 +26,7 @@
         <tbody>
           {% for log in logs %}
           <tr>
-            <td class="small font-monospace text-muted">{{ log.created_at[:16] }}</td>
+            <td class="small font-monospace text-muted">{{ log.created_at | br_dt }}</td>
             <td class="fw-semibold small">{{ log.username or '—' }}</td>
             <td class="small font-monospace text-muted">{{ log.ip_address or '—' }}</td>
             <td>
@@ -55,6 +55,8 @@
                 <span class="badge bg-primary">add nota</span>
               {% elif a == 'delete_nota' %}
                 <span class="badge bg-danger">excluir nota</span>
+              {% elif a == 'reprocess_leads' %}
+                <span class="badge bg-info text-dark">re-processar leads</span>
               {% else %}
                 <span class="badge bg-secondary">{{ a }}</span>
               {% endif %}

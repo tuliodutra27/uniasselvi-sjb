@@ -177,7 +177,7 @@
               {% for u in options.uploads %}
               <option value="{{ u.id }}"
                 {% if filters.upload_id == u.id|string %}selected{% endif %}>
-                #{{ u.id }} – {{ u.uploaded_at[:10] }} ({{ u.filename[:20] }}…)
+                #{{ u.id }} – {{ u.uploaded_at | br_d }} ({{ u.filename[:20] }}…)
               </option>
               {% endfor %}
             </select>

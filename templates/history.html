@@ -9,7 +9,15 @@
       <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Voltar
       </a>
-      <h4 class="mb-0">Histórico de uploads</h4>
+      <h4 class="mb-0 me-auto">Histórico de uploads</h4>
+      {% if current_user.is_admin %}
+      <form method="post" action="{{ url_for('reprocess_leads') }}"
+            onsubmit="return confirm('Re-processar todos os leads para extrair telefone/celular dos dados brutos? Pode levar alguns segundos.')">
+        <button type="submit" class="btn btn-sm btn-outline-info">
+          <i class="bi bi-arrow-repeat me-1"></i>Re-processar contatos
+        </button>
+      </form>
+      {% endif %}
     </div>
 
     {% if uploads %}
@@ -40,7 +48,7 @@
                     <span class="badge bg-secondary">0 novos</span>
                   {% endif %}
                 </td>
-                <td class="text-muted small">{{ u.uploaded_at[:16] }}</td>
+                <td class="text-muted small">{{ u.uploaded_at | br_dt }}</td>
                 <td>
                   <a href="{{ url_for('report', upload_id=u.id) }}" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-eye me-1"></i>Ver

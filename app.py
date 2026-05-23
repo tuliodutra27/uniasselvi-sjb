@@ -1,7 +1,9 @@
 import csv
+import json
 import os
 import re
 import unicodedata
+from datetime import datetime, timezone
 from functools import wraps
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, flash, session
@@ -9,8 +11,52 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
 import database
 
+try:
+    from zoneinfo import ZoneInfo
+    _BR_TZ = ZoneInfo("America/Sao_Paulo")
+    def _to_br(dt):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(_BR_TZ)
+except ImportError:
+    import pytz
+    _BR_TZ = pytz.timezone("America/Sao_Paulo")
+    def _to_br(dt):
+        if dt.tzinfo is None:
+            dt = pytz.utc.localize(dt)
+        return dt.astimezone(_BR_TZ)
+
+
+def _br_dt(value):
+    """Datetime string UTC → 'DD/MM/YYYY HH:MM' no fuso São Paulo."""
+    if not value:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(str(value)[:19])
+        dt = _to_br(dt)
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(value)
+
+
+def _br_d(value):
+    """Date string YYYY-MM-DD (ou datetime) → 'DD/MM/YYYY'."""
+    if not value:
+        return "—"
+    try:
+        s = str(value)[:10]
+        if len(s) == 10 and "-" in s:
+            y, m, d = s.split("-")
+            return f"{d}/{m}/{y}"
+        return s
+    except Exception:
+        return str(value)
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
+app.jinja_env.filters["br_dt"] = _br_dt
+app.jinja_env.filters["br_d"]  = _br_d
 
 with app.app_context():
     database.init_db()
@@ -30,6 +76,8 @@ COLUMN_ALIASES = {
     "turno":            ["turno"],
     "matriculou":       ["matriculou"],
     "tipo_inscricao":   ["tipo_da_inscricao", "tipo_inscricao"],
+    "phone":            ["telefone", "fone", "tel", "phone", "telefone_fixo", "tel_fixo"],
+    "cellphone":        ["celular", "cell", "cel", "mobile", "telefone_celular", "tel_celular"],
 }
 
 
@@ -288,6 +336,7 @@ def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
         cpf = "".join(filter(str.isdigit, _clean(row[col["cpf"]])))
         if not cpf:
             continue
+        raw_row = {c: _clean(str(row[c])) for c in df.columns}
         students.append({
             "cpf":              cpf,
             "name":             _clean(row[col["name"]]) if col["name"] else "",
@@ -299,6 +348,9 @@ def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
             "turno":            _clean(row[col["turno"]]) if col["turno"] else "",
             "matriculou":       _clean(row[col["matriculou"]]) if col["matriculou"] else "",
             "tipo_inscricao":   _clean(row[col["tipo_inscricao"]]) if col["tipo_inscricao"] else "",
+            "phone":            _clean(row[col["phone"]]) if col["phone"] else "",
+            "cellphone":        _clean(row[col["cellphone"]]) if col["cellphone"] else "",
+            "raw_data":         json.dumps(raw_row, ensure_ascii=False),
         })
     return students, None
 
@@ -463,6 +515,75 @@ def audit_log():
     return render_template("audit.html", logs=logs)
 
 
+def _extract_contacts_from_raw(raw_json: str) -> tuple[str, str]:
+    """Re-extrai phone e cellphone de um JSON de linha bruta do CSV."""
+    try:
+        raw = json.loads(raw_json)
+    except Exception:
+        return "", ""
+    nc = {normalize(col): val for col, val in raw.items()}
+    phone, cellphone = "", ""
+    for alias in COLUMN_ALIASES.get("phone", []):
+        if alias in nc and nc[alias]:
+            phone = nc[alias]
+            break
+    for alias in COLUMN_ALIASES.get("cellphone", []):
+        if alias in nc and nc[alias]:
+            cellphone = nc[alias]
+            break
+    return phone, cellphone
+
+
+@app.route("/admin/reprocess-leads", methods=["POST"])
+@admin_required
+def reprocess_leads():
+    updated_raw = 0
+    updated_csv = 0
+
+    # 1. Re-extrair de raw_data armazenado
+    raw_rows = database.get_all_students_raw()
+    updates_from_raw = []
+    for row in raw_rows:
+        phone, cellphone = _extract_contacts_from_raw(row["raw_data"])
+        if phone or cellphone:
+            updates_from_raw.append({"cpf": row["cpf"], "phone": phone, "cellphone": cellphone})
+    if updates_from_raw:
+        database.bulk_update_contacts(updates_from_raw)
+        updated_raw = len(updates_from_raw)
+
+    # 2. Re-ler CSVs originais para alunos sem raw_data
+    cpfs_with_raw = {row["cpf"] for row in raw_rows}
+    for upload in database.get_recent_uploads(1000):
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], upload["filename"])
+        if not os.path.exists(filepath):
+            continue
+        students, error = parse_csv(filepath)
+        if error:
+            continue
+        updates_from_file = [
+            {"cpf": s["cpf"], "phone": s["phone"], "cellphone": s["cellphone"]}
+            for s in students
+            if s["cpf"] not in cpfs_with_raw and (s["phone"] or s["cellphone"])
+        ]
+        if updates_from_file:
+            database.bulk_update_contacts(updates_from_file)
+            updated_csv += len(updates_from_file)
+            # Salvar raw_data nos registros que ainda não tinham
+            database.bulk_update_raw_data([
+                {"cpf": s["cpf"], "raw_data": s["raw_data"]}
+                for s in students if s["cpf"] not in cpfs_with_raw
+            ])
+
+    total = updated_raw + updated_csv
+    database.add_audit_log(session["username"], request.remote_addr, "reprocess_leads",
+                           f"{total} alunos com contato atualizado ({updated_raw} via raw_data, {updated_csv} via CSV)")
+    if total:
+        flash(f"{total} aluno(s) tiveram contato atualizado com sucesso.", "success")
+    else:
+        flash("Nenhum contato novo encontrado. Os arquivos CSV originais podem não estar mais disponíveis.", "warning")
+    return redirect(url_for("history"))
+
+
 # ── MAIN ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -522,15 +643,16 @@ def report(upload_id):
 @app.route("/students")
 def students():
     filters = {
-        "nome":       request.args.get("nome", "").strip(),
-        "course":     request.args.get("course", ""),
-        "polo":       request.args.get("polo", ""),
-        "turno":      request.args.get("turno", ""),
-        "matriculou": request.args.get("matriculou", ""),
-        "tipo":       request.args.get("tipo", ""),
-        "data_ini":   request.args.get("data_ini", ""),
-        "data_fim":   request.args.get("data_fim", ""),
-        "upload_id":  request.args.get("upload_id", ""),
+        "nome":        request.args.get("nome", "").strip(),
+        "course":      request.args.get("course", ""),
+        "polo":        request.args.get("polo", ""),
+        "turno":       request.args.get("turno", ""),
+        "matriculou":  request.args.get("matriculou", ""),
+        "tipo":        request.args.get("tipo", ""),
+        "data_ini":    request.args.get("data_ini", ""),
+        "data_fim":    request.args.get("data_fim", ""),
+        "upload_id":   request.args.get("upload_id", ""),
+        "has_contact": request.args.get("has_contact", ""),
     }
     active = {k: v for k, v in filters.items() if v}
 
@@ -733,9 +855,10 @@ def student_detail(cpf):
 @app.route("/student/<cpf>/note", methods=["POST"])
 def add_student_note(cpf):
     note = request.form.get("note", "").strip()
+    username = session.get("username", "")
     if note:
-        database.add_note("student", cpf, note)
-        database.add_audit_log(session.get("username", ""), request.remote_addr,
+        database.add_note("student", cpf, note, created_by=username)
+        database.add_audit_log(username, request.remote_addr,
                                "add_nota", f"Anotação adicionada ao aluno CPF: {cpf[:3]}***")
     return redirect(url_for("student_detail", cpf=cpf))
 
@@ -759,9 +882,10 @@ def enrolled_student_detail(code):
 @app.route("/enrolled/student/<code>/note", methods=["POST"])
 def add_enrolled_note(code):
     note = request.form.get("note", "").strip()
+    username = session.get("username", "")
     if note:
-        database.add_note("enrolled", code, note)
-        database.add_audit_log(session.get("username", ""), request.remote_addr,
+        database.add_note("enrolled", code, note, created_by=username)
+        database.add_audit_log(username, request.remote_addr,
                                "add_nota", f"Anotação adicionada ao matriculado código: {code}")
     return redirect(url_for("enrolled_student_detail", code=code))
 

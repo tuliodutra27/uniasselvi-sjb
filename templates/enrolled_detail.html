@@ -91,7 +91,7 @@
               </tr>
               {# Linha expandida com dados extras #}
               {% if e.email or e.polo or e.tipo_aluno or e.forma_ingresso or e.ultimo_acesso %}
-              <tr class="table-light">
+              <tr style="background:var(--bs-secondary-bg)">
                 <td colspan="7" class="small text-muted ps-3 pb-2">
                   {% if e.polo %}<span class="me-3"><i class="bi bi-geo-alt me-1"></i>{{ e.polo }}</span>{% endif %}
                   {% if e.email %}<span class="me-3"><i class="bi bi-envelope me-1"></i>{{ e.email }}</span>{% endif %}
@@ -138,11 +138,15 @@
           <hr class="my-3">
           <div class="d-flex flex-column gap-3">
             {% for n in notes %}
-            <div class="border rounded p-3 bg-light">
+            <div class="border rounded p-3" style="background:var(--bs-secondary-bg)">
               <p class="mb-1" style="white-space:pre-wrap">{{ n.note }}</p>
               <div class="d-flex align-items-center justify-content-between mt-2">
                 <small class="text-muted">
-                  <i class="bi bi-clock me-1"></i>{{ n.created_at[:16] }}
+                  {% if n.created_by %}
+                    <i class="bi bi-person me-1"></i>{{ n.created_by }}
+                    <span class="mx-1">·</span>
+                  {% endif %}
+                  <i class="bi bi-clock me-1"></i>{{ n.created_at | br_dt }}
                 </small>
                 <form method="post" action="{{ url_for('delete_note', note_id=n.id) }}"
                       onsubmit="return confirm('Excluir esta anotação?')">

@@ -57,7 +57,7 @@
                     <span class="badge bg-secondary">0</span>
                   {% endif %}
                 </td>
-                <td class="text-muted small">{{ u.uploaded_at[:16] }}</td>
+                <td class="text-muted small">{{ u.uploaded_at | br_dt }}</td>
                 <td>
                   <a href="{{ url_for('report', upload_id=u.id) }}" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-eye"></i>
