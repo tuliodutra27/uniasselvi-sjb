@@ -2,9 +2,11 @@ import csv
 import os
 import re
 import unicodedata
+from functools import wraps
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash
 import database
 
 app = Flask(__name__)
@@ -30,8 +32,45 @@ COLUMN_ALIASES = {
     "tipo_inscricao":   ["tipo_da_inscricao", "tipo_inscricao"],
 }
 
+
+# ── AUTH HELPERS ──────────────────────────────────────────────────────────────
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("role") != "admin":
+            flash("Acesso restrito a administradores.", "danger")
+            return redirect(url_for("index"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.context_processor
+def inject_user():
+    return {
+        "current_user": {
+            "username": session.get("username", ""),
+            "role": session.get("role", ""),
+            "is_admin": session.get("role") == "admin",
+            "is_authenticated": "username" in session,
+        }
+    }
+
+
+@app.before_request
+def check_auth():
+    exempt = {"login", "logout", "setup", "static"}
+    if request.endpoint in exempt or request.endpoint is None:
+        return None
+    if not database.has_any_user():
+        return redirect(url_for("setup"))
+    if "username" not in session:
+        return redirect(url_for("login", next=request.path))
+
+
+# ── CSV PARSING HELPERS ───────────────────────────────────────────────────────
+
 def _parse_aluno_col(val: str) -> tuple[str, str]:
-    """Extract (name, code) from 'Nome Completo (12345)' format."""
     s = _clean(val).strip('"')
     m = re.search(r'\((\d+)\)\s*$', s)
     if m:
@@ -40,7 +79,6 @@ def _parse_aluno_col(val: str) -> tuple[str, str]:
 
 
 def _find_col_partial(normalized_cols: dict, *substrings) -> str | None:
-    """Return the first original column name whose normalized form contains any substring."""
     for norm, orig in normalized_cols.items():
         for sub in substrings:
             if sub in norm:
@@ -49,7 +87,6 @@ def _find_col_partial(normalized_cols: dict, *substrings) -> str | None:
 
 
 def _map_payment_status(val: str) -> str:
-    """Map INADIMPLENTE (Sim/Não) or NEGATIVADO (S/N) to Adimplente/Inadimplente."""
     v = normalize(str(val)) if val else ""
     if v in ("sim", "s", "y", "yes"):
         return "Inadimplente"
@@ -60,7 +97,7 @@ def normalize(text: str) -> str:
     return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower().strip()
 
 
-def detect_columns(df: pd.DataFrame) -> dict:
+def detect_columns(df) -> dict:
     normalized_cols = {normalize(c): c for c in df.columns}
     return {
         field: next((normalized_cols[a] for a in aliases if a in normalized_cols), None)
@@ -97,13 +134,11 @@ def _clean(val) -> str:
 
 
 def _normalize_date(val: str) -> str:
-    """Keep only the YYYY-MM-DD part."""
     s = _clean(val)
     return s[:10] if len(s) >= 10 else s
 
 
 def _normalize_br_date(val: str) -> str:
-    """Convert DD/MM/YYYY to YYYY-MM-DD. Returns '' for empty/dash values."""
     s = _clean(val)
     if not s or s in ("-", " - ", "–", "—"):
         return ""
@@ -116,17 +151,15 @@ def _normalize_br_date(val: str) -> str:
 def parse_payment_csv(filepath: str) -> tuple[list[dict], str | None]:
     encoding, sep = _detect_encoding_and_sep(filepath)
     try:
-        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep,
-                         index_col=False)
+        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep, index_col=False)
     except Exception as e:
         return [], f"Erro ao ler o arquivo: {e}"
 
     df.columns = [c.strip() for c in df.columns]
-    nc = {normalize(c): c for c in df.columns}  # normalized → original
+    nc = {normalize(c): c for c in df.columns}
 
-    # Detect which format we're dealing with
-    col_cod   = nc.get("cod_aluno")        # File 2: COD_ALUNO column
-    col_aluno = nc.get("aluno")            # File 1: "Nome (código)" column
+    col_cod   = nc.get("cod_aluno")
+    col_aluno = nc.get("aluno")
     col_nome  = nc.get("nome_aluno")
 
     if not col_cod and not col_aluno:
@@ -154,7 +187,6 @@ def parse_payment_csv(filepath: str) -> tuple[list[dict], str | None]:
         if not student_code and not student_name:
             continue
 
-        # Determine status from INADIMPLENTE or NEGATIVADO
         status = "Adimplente"
         if col_inad:
             status = _map_payment_status(_clean(row[col_inad]))
@@ -179,8 +211,7 @@ def parse_payment_csv(filepath: str) -> tuple[list[dict], str | None]:
 def parse_enrolled_csv(filepath: str) -> tuple[list[dict], str | None]:
     encoding, sep = _detect_encoding_and_sep(filepath)
     try:
-        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep,
-                         index_col=False)
+        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep, index_col=False)
     except Exception as e:
         return [], f"Erro ao ler o arquivo: {e}"
 
@@ -240,8 +271,7 @@ def parse_enrolled_csv(filepath: str) -> tuple[list[dict], str | None]:
 def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
     encoding, sep = _detect_encoding_and_sep(filepath)
     try:
-        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep,
-                         index_col=False)
+        df = pd.read_csv(filepath, dtype=str, encoding=encoding, sep=sep, index_col=False)
     except Exception as e:
         return [], f"Erro ao ler o arquivo: {e}"
 
@@ -272,6 +302,168 @@ def parse_csv(filepath: str) -> tuple[list[dict], str | None]:
         })
     return students, None
 
+
+# ── AUTH ROUTES ───────────────────────────────────────────────────────────────
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not database.has_any_user():
+        return redirect(url_for("setup"))
+    if "username" in session:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        user = database.get_user_by_username(username)
+        if user and check_password_hash(user["password_hash"], password):
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+            database.add_audit_log(username, request.remote_addr, "login", "Login bem-sucedido")
+            return redirect(request.args.get("next") or url_for("index"))
+        flash("Usuário ou senha inválidos.", "danger")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    username = session.get("username", "")
+    if username:
+        database.add_audit_log(username, request.remote_addr, "logout", "")
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.route("/setup", methods=["GET", "POST"])
+def setup():
+    if database.has_any_user():
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        confirm  = request.form.get("confirm", "").strip()
+        if not username or not password:
+            flash("Preencha todos os campos.", "danger")
+        elif password != confirm:
+            flash("As senhas não coincidem.", "danger")
+        elif len(password) < 6:
+            flash("A senha deve ter pelo menos 6 caracteres.", "danger")
+        else:
+            database.create_user(username, password, "admin")
+            session["username"] = username
+            session["role"] = "admin"
+            database.add_audit_log(username, request.remote_addr, "setup",
+                                   "Conta de administrador criada na primeira execução")
+            flash("Conta de administrador criada com sucesso!", "success")
+            return redirect(url_for("index"))
+    return render_template("setup.html")
+
+
+# ── USER MANAGEMENT ROUTES ────────────────────────────────────────────────────
+
+@app.route("/users")
+@admin_required
+def users():
+    all_users = database.get_all_users()
+    return render_template("users.html", users=all_users)
+
+
+@app.route("/users/add", methods=["POST"])
+@admin_required
+def add_user():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    role = request.form.get("role", "user")
+    if not username or not password:
+        flash("Preencha todos os campos.", "danger")
+    elif len(password) < 6:
+        flash("A senha deve ter pelo menos 6 caracteres.", "danger")
+    elif role not in ("admin", "user"):
+        flash("Perfil inválido.", "danger")
+    elif database.get_user_by_username(username):
+        flash(f"Usuário '{username}' já existe.", "danger")
+    else:
+        database.create_user(username, password, role, created_by=session["username"])
+        database.add_audit_log(session["username"], request.remote_addr, "create_user",
+                               f"Criou usuário '{username}' com perfil '{role}'")
+        flash(f"Usuário '{username}' criado com sucesso.", "success")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def delete_user(user_id):
+    all_users = database.get_all_users()
+    target = next((u for u in all_users if u["id"] == user_id), None)
+    if not target:
+        flash("Usuário não encontrado.", "danger")
+        return redirect(url_for("users"))
+    if target["username"] == session["username"]:
+        flash("Você não pode excluir sua própria conta.", "danger")
+        return redirect(url_for("users"))
+    if target["role"] == "admin" and database.count_admins() <= 1:
+        flash("Não é possível excluir o único administrador.", "danger")
+        return redirect(url_for("users"))
+    database.delete_user(user_id)
+    database.add_audit_log(session["username"], request.remote_addr, "delete_user",
+                           f"Excluiu usuário '{target['username']}'")
+    flash(f"Usuário '{target['username']}' excluído.", "success")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:user_id>/role", methods=["POST"])
+@admin_required
+def change_user_role(user_id):
+    new_role = request.form.get("role", "user")
+    if new_role not in ("admin", "user"):
+        flash("Perfil inválido.", "danger")
+        return redirect(url_for("users"))
+    all_users = database.get_all_users()
+    target = next((u for u in all_users if u["id"] == user_id), None)
+    if not target:
+        flash("Usuário não encontrado.", "danger")
+        return redirect(url_for("users"))
+    if target["username"] == session["username"] and new_role != "admin":
+        flash("Você não pode remover seu próprio acesso de administrador.", "danger")
+        return redirect(url_for("users"))
+    if target["role"] == "admin" and new_role != "admin" and database.count_admins() <= 1:
+        flash("Não é possível rebaixar o único administrador.", "danger")
+        return redirect(url_for("users"))
+    database.update_user_role(user_id, new_role)
+    database.add_audit_log(session["username"], request.remote_addr, "change_role",
+                           f"Alterou perfil de '{target['username']}' para '{new_role}'")
+    flash(f"Perfil de '{target['username']}' alterado para '{new_role}'.", "success")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:user_id>/password", methods=["POST"])
+@admin_required
+def change_user_password(user_id):
+    password = request.form.get("password", "").strip()
+    if len(password) < 6:
+        flash("A senha deve ter pelo menos 6 caracteres.", "danger")
+        return redirect(url_for("users"))
+    all_users = database.get_all_users()
+    target = next((u for u in all_users if u["id"] == user_id), None)
+    if not target:
+        flash("Usuário não encontrado.", "danger")
+        return redirect(url_for("users"))
+    database.update_user_password(user_id, password)
+    database.add_audit_log(session["username"], request.remote_addr, "change_password",
+                           f"Alterou senha de '{target['username']}'")
+    flash(f"Senha de '{target['username']}' atualizada.", "success")
+    return redirect(url_for("users"))
+
+
+# ── AUDIT LOG ROUTE ───────────────────────────────────────────────────────────
+
+@app.route("/audit")
+@admin_required
+def audit_log():
+    logs = database.get_audit_logs(500)
+    return render_template("audit.html", logs=logs)
+
+
+# ── MAIN ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -305,6 +497,9 @@ def upload():
 
     upload_id = database.record_upload(filename, len(students), len(new_students))
     database.insert_new_students(new_students, upload_id)
+    database.add_audit_log(session.get("username", ""), request.remote_addr,
+                           "upload_inscricoes",
+                           f"Arquivo: {filename} | Total: {len(students)} | Novos: {len(new_students)}")
 
     return redirect(url_for("report", upload_id=upload_id))
 
@@ -450,6 +645,9 @@ def upload_enrolled():
 
     upload_id = database.record_enrollment_upload(filename, len(records))
     database.insert_enrolled_students(records, upload_id)
+    database.add_audit_log(session.get("username", ""), request.remote_addr,
+                           "upload_matriculados",
+                           f"Arquivo: {filename} | Registros: {len(records)}")
 
     flash(f"{len(records)} alunos matriculados importados com sucesso.", "success")
     return redirect(url_for("enrolled"))
@@ -510,6 +708,9 @@ def upload_payments():
 
     upload_id = database.record_payment_upload(filename, len(records))
     database.insert_payments(records, upload_id)
+    database.add_audit_log(session.get("username", ""), request.remote_addr,
+                           "upload_mensalidades",
+                           f"Arquivo: {filename} | Registros: {len(records)}")
 
     flash(f"{len(records)} registros de pagamento importados com sucesso.", "success")
     return redirect(url_for("payments"))
@@ -534,6 +735,8 @@ def add_student_note(cpf):
     note = request.form.get("note", "").strip()
     if note:
         database.add_note("student", cpf, note)
+        database.add_audit_log(session.get("username", ""), request.remote_addr,
+                               "add_nota", f"Anotação adicionada ao aluno CPF: {cpf[:3]}***")
     return redirect(url_for("student_detail", cpf=cpf))
 
 
@@ -558,13 +761,20 @@ def add_enrolled_note(code):
     note = request.form.get("note", "").strip()
     if note:
         database.add_note("enrolled", code, note)
+        database.add_audit_log(session.get("username", ""), request.remote_addr,
+                               "add_nota", f"Anotação adicionada ao matriculado código: {code}")
     return redirect(url_for("enrolled_student_detail", code=code))
 
 
 @app.route("/note/<int:note_id>/delete", methods=["POST"])
 def delete_note(note_id):
     back = request.form.get("back", "/")
+    note = database.get_note(note_id)
     database.delete_note(note_id)
+    if note:
+        database.add_audit_log(session.get("username", ""), request.remote_addr,
+                               "delete_nota",
+                               f"Excluiu nota #{note_id} ({note['entity_type']}:{note['entity_id']})")
     return redirect(back)
 
 

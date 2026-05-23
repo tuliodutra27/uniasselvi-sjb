@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from werkzeug.security import generate_password_hash
 
 DB_PATH = os.environ.get("DB_PATH", "student_tracker.db")
 
@@ -89,10 +90,10 @@ def init_db():
         _migrate(conn)
         _migrate_payments(conn)
         _migrate_notes(conn)
+        _migrate_auth(conn)
 
 
 def _migrate(conn):
-    """Add columns introduced after the initial schema without dropping data."""
     new_cols = [
         ("inscription_date", "TEXT"),
         ("polo",             "TEXT"),
@@ -108,7 +109,6 @@ def _migrate(conn):
 
 
 def _migrate_payments(conn):
-    """Migrate payments table: recreate if old CPF-based schema, add new columns otherwise."""
     cols = {row[1] for row in conn.execute("PRAGMA table_info(payments)")}
     if "cpf" in cols:
         conn.execute("DROP TABLE payments")
@@ -144,6 +144,30 @@ def _migrate_notes(conn):
         )
     """)
 
+
+def _migrate_auth(conn):
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'user',
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_by    TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT,
+            ip_address TEXT,
+            action     TEXT NOT NULL,
+            details    TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+
+# ── ALUNOS INSCRITOS ──────────────────────────────────────────────────────────
 
 def get_known_cpfs():
     with get_connection() as conn:
@@ -484,6 +508,11 @@ def get_notes(entity_type: str, entity_id: str):
         ).fetchall()
 
 
+def get_note(note_id: int):
+    with get_connection() as conn:
+        return conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+
+
 def add_note(entity_type: str, entity_id: str, note: str):
     with get_connection() as conn:
         conn.execute(
@@ -522,4 +551,70 @@ def get_enrolled_by_code(code: str):
         return conn.execute(
             "SELECT * FROM enrolled_students WHERE student_code=? ORDER BY semestre DESC",
             (code,),
+        ).fetchall()
+
+
+# ── AUTENTICAÇÃO ─────────────────────────────────────────────────────────────
+
+def has_any_user() -> bool:
+    with get_connection() as conn:
+        return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 0
+
+
+def create_user(username: str, password: str, role: str, created_by: str = None):
+    pw_hash = generate_password_hash(password)
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, role, created_by) VALUES (?,?,?,?)",
+            (username, pw_hash, role, created_by),
+        )
+
+
+def get_user_by_username(username: str):
+    with get_connection() as conn:
+        return conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+
+
+def get_all_users():
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT id, username, role, created_at, created_by FROM users ORDER BY created_at"
+        ).fetchall()
+
+
+def delete_user(user_id: int):
+    with get_connection() as conn:
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
+def update_user_role(user_id: int, role: str):
+    with get_connection() as conn:
+        conn.execute("UPDATE users SET role=? WHERE id=?", (role, user_id))
+
+
+def update_user_password(user_id: int, password: str):
+    pw_hash = generate_password_hash(password)
+    with get_connection() as conn:
+        conn.execute("UPDATE users SET password_hash=? WHERE id=?", (pw_hash, user_id))
+
+
+def count_admins() -> int:
+    with get_connection() as conn:
+        return conn.execute("SELECT COUNT(*) FROM users WHERE role='admin'").fetchone()[0]
+
+
+# ── LOG DE AUDITORIA ─────────────────────────────────────────────────────────
+
+def add_audit_log(username: str, ip_address: str, action: str, details: str = ""):
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO audit_log (username, ip_address, action, details) VALUES (?,?,?,?)",
+            (username, ip_address, action, details),
+        )
+
+
+def get_audit_logs(limit: int = 500):
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
