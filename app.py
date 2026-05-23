@@ -55,8 +55,20 @@ def _br_d(value):
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
-app.jinja_env.filters["br_dt"] = _br_dt
-app.jinja_env.filters["br_d"]  = _br_d
+def _wa_number(value):
+    """Phone string → digits only with BR country code (55), for wa.me links."""
+    if not value:
+        return ""
+    digits = "".join(c for c in str(value) if c.isdigit())
+    if not digits:
+        return ""
+    if not digits.startswith("55"):
+        digits = "55" + digits
+    return digits
+
+app.jinja_env.filters["br_dt"]    = _br_dt
+app.jinja_env.filters["br_d"]     = _br_d
+app.jinja_env.filters["wa_number"] = _wa_number
 
 with app.app_context():
     database.init_db()

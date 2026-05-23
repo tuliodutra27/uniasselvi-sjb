@@ -72,14 +72,35 @@
                 <td>{{ s.student_id or '—' }}</td>
                 <td>{{ s.course or '—' }}</td>
                 <td>{{ s.enrollment_date or '—' }}</td>
-                {% if s.phone or s.cellphone %}
                 <td class="small">
-                  {% if s.phone %}<span class="me-2"><i class="bi bi-telephone me-1"></i>{{ s.phone }}</span>{% endif %}
-                  {% if s.cellphone %}<span><i class="bi bi-phone me-1"></i>{{ s.cellphone }}</span>{% endif %}
+                  {% if s.phone %}
+                    <div class="d-flex align-items-center gap-1 mb-1">
+                      <i class="bi bi-telephone text-muted"></i>
+                      <span>{{ s.phone }}</span>
+                      {% set wa = s.phone | wa_number %}
+                      {% if wa %}
+                      <a href="https://wa.me/{{ wa }}" target="_blank"
+                         class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
+                        <i class="bi bi-whatsapp"></i>
+                      </a>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  {% if s.cellphone %}
+                    <div class="d-flex align-items-center gap-1">
+                      <i class="bi bi-phone text-muted"></i>
+                      <span>{{ s.cellphone }}</span>
+                      {% set wa = s.cellphone | wa_number %}
+                      {% if wa %}
+                      <a href="https://wa.me/{{ wa }}" target="_blank"
+                         class="btn btn-success btn-sm py-0 px-1" title="Abrir no WhatsApp">
+                        <i class="bi bi-whatsapp"></i>
+                      </a>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  {% if not s.phone and not s.cellphone %}<span class="text-muted">—</span>{% endif %}
                 </td>
-                {% else %}
-                <td class="text-muted">—</td>
-                {% endif %}
               </tr>
               {% endfor %}
             </tbody>

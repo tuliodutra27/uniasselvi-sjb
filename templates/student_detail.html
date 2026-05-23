@@ -72,11 +72,33 @@
             </tr>
             <tr>
               <th class="text-muted small ps-3">Telefone</th>
-              <td class="small">{{ student.phone or '—' }}</td>
+              <td class="small">
+                {% if student.phone %}
+                  {{ student.phone }}
+                  {% set wa = student.phone | wa_number %}
+                  {% if wa %}
+                  <a href="https://wa.me/{{ wa }}" target="_blank"
+                     class="btn btn-success btn-sm py-0 px-1 ms-2" title="Abrir no WhatsApp">
+                    <i class="bi bi-whatsapp"></i>
+                  </a>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
             </tr>
             <tr>
               <th class="text-muted small ps-3">Celular</th>
-              <td class="small">{{ student.cellphone or '—' }}</td>
+              <td class="small">
+                {% if student.cellphone %}
+                  {{ student.cellphone }}
+                  {% set wa = student.cellphone | wa_number %}
+                  {% if wa %}
+                  <a href="https://wa.me/{{ wa }}" target="_blank"
+                     class="btn btn-success btn-sm py-0 px-1 ms-2" title="Abrir no WhatsApp">
+                    <i class="bi bi-whatsapp"></i>
+                  </a>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
             </tr>
             <tr>
               <th class="text-muted small ps-3">Primeiro visto em</th>
