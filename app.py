@@ -717,10 +717,17 @@ def students():
         "data_fim":    request.args.get("data_fim", ""),
         "upload_id":   request.args.get("upload_id", ""),
         "has_contact": request.args.get("has_contact", ""),
+        "trabalhado":  request.args.get("trabalhado", ""),
     }
     active = {k: v for k, v in filters.items() if v}
 
-    rows, total_db, matriculados = database.get_students_filtered(**filters)
+    rows, total_db, matriculados = database.get_students_filtered(
+        nome=filters["nome"], cpf=filters["cpf"], course=filters["course"],
+        polo=filters["polo"], turno=filters["turno"], matriculou=filters["matriculou"],
+        tipo=filters["tipo"], data_ini=filters["data_ini"], data_fim=filters["data_fim"],
+        upload_id=filters["upload_id"], has_contact=filters["has_contact"],
+        trabalhado=filters["trabalhado"],
+    )
     options = database.get_filter_options()
 
     cpfs = [s["cpf"] for s in rows]
@@ -960,6 +967,32 @@ def add_enrolled_note(code):
         database.add_audit_log(username, request.remote_addr,
                                "add_nota", f"Anotação adicionada ao matriculado código: {code}")
     return redirect(url_for("enrolled_student_detail", code=code))
+
+
+@app.route("/student/<cpf>/toggle-contacted", methods=["POST"])
+def toggle_contacted(cpf):
+    from flask import jsonify
+    student = database.get_student(cpf)
+    if not student:
+        return jsonify({"ok": False}), 404
+    username = session.get("username", "")
+    if student["contacted_at"]:
+        database.set_student_uncontacted(cpf)
+        database.add_audit_log(username, request.remote_addr,
+                               "uncontacted_lead", f"CPF: {cpf[:3]}***")
+        return jsonify({"ok": True, "contacted": False})
+    else:
+        database.set_student_contacted(cpf, username)
+        updated = database.get_student(cpf)
+        at_br = _br_d(updated["contacted_at"])
+        database.add_audit_log(username, request.remote_addr,
+                               "contacted_lead", f"CPF: {cpf[:3]}***")
+        return jsonify({
+            "ok": True,
+            "contacted": True,
+            "contacted_at_br": at_br,
+            "contacted_by": username,
+        })
 
 
 @app.route("/note/<int:note_id>/delete", methods=["POST"])

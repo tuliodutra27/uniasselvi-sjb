@@ -105,6 +105,8 @@ def _migrate(conn):
         ("phone",            "TEXT"),
         ("cellphone",        "TEXT"),
         ("raw_data",         "TEXT"),
+        ("contacted_at",     "TEXT"),
+        ("contacted_by",     "TEXT"),
     ]
     existing = {row[1] for row in conn.execute("PRAGMA table_info(students)")}
     for col, typ in new_cols:
@@ -290,10 +292,28 @@ def get_filter_options():
         }
 
 
+def set_student_contacted(cpf: str, username: str):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE students SET contacted_at=?, contacted_by=? WHERE cpf=?",
+            (now, username, cpf),
+        )
+
+
+def set_student_uncontacted(cpf: str):
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE students SET contacted_at=NULL, contacted_by=NULL WHERE cpf=?",
+            (cpf,),
+        )
+
+
 def get_students_filtered(nome=None, cpf=None, course=None, polo=None, turno=None,
                           matriculou=None, tipo=None,
                           data_ini=None, data_fim=None, upload_id=None,
-                          has_contact=None):
+                          has_contact=None, trabalhado=None):
     conditions, params = [], []
 
     if nome:
@@ -304,6 +324,10 @@ def get_students_filtered(nome=None, cpf=None, course=None, polo=None, turno=Non
         if cpf_digits:
             conditions.append("cpf LIKE ?")
             params.append(f"%{cpf_digits}%")
+    if trabalhado == "S":
+        conditions.append("contacted_at IS NOT NULL")
+    elif trabalhado == "N":
+        conditions.append("contacted_at IS NULL")
     if course:
         conditions.append("course = ?")
         params.append(course)
